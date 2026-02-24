@@ -1,0 +1,176 @@
+DELIMITER $$
+
+USE `bnb_chain_x`$$
+
+DROP PROCEDURE IF EXISTS `sp_daily_roi`$$
+
+CREATE DEFINER=`vermaanand`@`%` PROCEDURE `sp_daily_roi`()
+BEGIN
+	DECLARE uid,days,tr_rowid INT(11) DEFAULT 0; 
+	DECLARE tamount, allincome, newincome, final_income, total_pv, roi_per, lastincome,roi_distributed DECIMAL(18,4) DEFAULT 0.00; -- amount mei store ho raha hai ki user ne kitne mei topup kiya hai for one time only, total_pv hum store kara rahe hai ki total kitna amount ek ID ne topup kiya hai (ek se jyada baar)
+	DECLARE pay_date, income_desc VARCHAR(250); -- 
+	DECLARE trans_id, dname, trans_id2 VARCHAR(250);
+	
+	-- fetch transaction id's 
+	SELECT `get_transaction_id`() INTO trans_id;
+	SELECT `get_transaction_id`() INTO trans_id2;
+	
+	BEGIN
+		DECLARE c CURSOR FOR SELECT `topup_id`,`topup_user_id`,`topup_real_amount`,`topup_roi_amount`,`jnr_topup_wallet`,`jnr_total_income` FROM `bnb_chain_topup_details`
+			INNER JOIN `bnb_chain_joiner_details` ON  `jnr_id`=`topup_user_id`
+			WHERE `topup_roi_status`=1 AND `topup_roi_amount` > 0;
+					
+		DECLARE EXIT HANDLER FOR NOT FOUND
+		BEGIN
+		END;
+		OPEN c;
+		
+		payout:LOOP
+			FETCH c INTO tr_rowid, uid, tamount, roi_distributed,total_pv,allincome;
+		
+				SET final_income = (tamount * 0.003);
+				
+				SET newincome= allincome + final_income;
+				
+				IF newincome > (total_pv * 3) THEN
+				SET final_income = (total_pv * 3) - allincome;
+				END IF;
+	   
+			
+				IF (uid <> 0 AND final_income > 0) THEN
+					INSERT INTO `tr07_manage_ledger` (
+						`m_u_id`,
+						`m_trans_id`,
+						`m_cramount`,
+						`m_description`,
+						`m_refrence_id`,
+						`m_ledger_type`,
+						`m_admin_charges`,
+						`m_tds_charges`,
+						`m_bal_type`
+					) 
+					VALUES
+					(
+						uid,
+						trans_id,
+						final_income,
+						'Self Incentive Bonus',
+						0,
+						5,
+						0,
+						0,
+						1
+						
+					);
+				END IF;	 
+				 CALL sp_level_income(uid,final_income,trans_id2);
+				-- CALL sp_booster_income(uid,final_income,trans_id2);
+				UPDATE `tr34_retopup` SET `tr34_retopup`.tr_days = `tr34_retopup`.tr_days-1 WHERE tr_reid = tr_rowid;
+	
+	IF days=1 THEN
+	UPDATE `tr34_retopup` SET tr_status = 2,tr_roi_completed=NOW() WHERE tr_reid = tr_rowid;
+	END IF;
+	
+	IF newincome > (total_pv * 2) THEN
+	UPDATE `tr34_retopup` SET tr_status = 2,tr_roi_completed=NOW() WHERE tr_reid = tr_rowid;
+	END IF;
+	
+		END LOOP payout;
+		CLOSE c;
+	END;
+END$$
+
+DELIMITER ;
+
+
+
+
+
+
+DELIMITER $$
+
+USE `admin_buybotclubnew`$$
+
+DROP PROCEDURE IF EXISTS `sp_level_income`$$
+
+CREATE DEFINER=`buybotclubnew`@`%` PROCEDURE `sp_level_income`(
+	IN userid INT(11),
+	IN amount DECIMAL(10,4),
+	IN trans_id VARCHAR(255)
+	)
+BEGIN
+	
+	DECLARE UIDD  , DAYS,itroid,checktopup,income_status ,user_status,DIRECTCOUNT,bus_direct,final_direct INT(11) DEFAULT 0;
+	DECLARE counter INT(11) DEFAULT 1;
+	DECLARE dname,accountno,ifsccode VARCHAR(250);
+	DECLARE perce,final_amt,income1,direct1,selfinv,lev_bus,allincome,newincome,total_income,gain_income,final_gain DECIMAL(10,4) DEFAULT 0.00;
+	
+      
+	SET UIDD = userid;
+	
+	WHILE counter < 4 DO
+	
+		SELECT `m03_user_detail`.`or_m_intr_id` INTO itroid FROM `m03_user_detail` WHERE `m03_user_detail`.`or_m_reg_id` = UIDD LIMIT 1;
+		
+		SET UIDD = itroid;
+		
+		SELECT IFNULL(SUM(tr_pv), 0) INTO selfinv FROM `tr34_retopup` WHERE tr_user_id = itroid AND tr_status=1;
+		
+		IF selfinv > 0 THEN
+			SELECT `or_m_status`,(or_m_topup_amt * 2) AS total ,or_m_total_income
+			 INTO user_status,total_income,gain_income FROM `m03_user_detail` WHERE `m03_user_detail`.`or_m_reg_id` = itroid LIMIT 1;
+		
+			SELECT m32_amount,m32_direct_id INTO income1,bus_direct
+			FROM `m32_level_income`
+			WHERE m32_lev = counter;
+			
+			SELECT COUNT(DISTINCT(tr_user_id)) INTO final_direct   FROM `view_retopup` 
+			WHERE or_m_intr_id=itroid;
+		         
+			SET final_amt = (amount * income1);
+			SET final_gain=gain_income + final_amt;
+			
+			IF final_gain > total_income THEN
+				SET final_amt= total_income-gain_income;
+			END IF;
+			
+			IF (itroid <> 0 AND user_status=1 AND final_amt > 0   AND (final_direct >= bus_direct)) THEN
+				INSERT INTO `tr07_manage_ledger` (
+					`m_u_id`,
+					`m_trans_id`,
+					`m_cramount`,
+					`m_description`,
+					`m_refrence_id`,
+					`m_ledger_type`,
+					`level_`,
+					m_bal_type,
+					m_admin_charges,
+					m_current_balance
+				) 
+				VALUES
+				(
+					itroid,
+					trans_id,
+					final_amt,
+					CONCAT("Level Bonus Income from ",get_detail(userid,4)," of Level- ",counter),
+					userid,
+					4,
+					counter,
+					1,
+					0,
+					0
+				) ;     
+			END IF;
+			
+			
+			IF final_gain > total_income THEN
+		UPDATE `tr34_retopup` SET tr_status = 2,tr_roi_completed=NOW() WHERE tr_user_id = itroid;
+		END IF;
+			
+			
+		END IF;
+		SET counter = counter+1;
+	END WHILE;  
+END$$
+
+DELIMITER ;
