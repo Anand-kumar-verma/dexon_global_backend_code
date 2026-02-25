@@ -42,7 +42,7 @@
     "qrcode": "^1.5.4",
     "redis": "^5.5.6",
     "sequelize": "^6.37.4",
-    "socket.io": "^4.8.1",
+    "socket.io": "^4.8.3",
     "telegraf": "^4.16.3",
     "tronweb": "^5.3.3",
     "xlsx": "^0.18.5"
