@@ -46,6 +46,12 @@ app.use(bodyParser.urlencoded({ limit: "10mb", extended: true }));
 
 app.use("/api/v9", dexonglobal);
 
+app.use(express.static(path.join(__dirname, "build")));
+app.get("/*", (req, res) => {
+  res.sendFile(path.join(__dirname, "build", "index.html"));
+});
+
+
 let x = true;
 if (x) {
   console.log("Waiting for the next minute to start...");

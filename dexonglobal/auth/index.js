@@ -188,15 +188,15 @@ exports.userRegistration = async (req, res) => {
     );
     if (result?.[0]?.message === "Registration Successfully") {
 
-      await mailSender(
-        email?.trim(),
-        `Congcongratulations,${full_name?.trim()}`,
-        registrationSuccessfully(
-          full_name?.trim(),
-          String(result?.[0]?.cust_id)?.trim(),
-          password?.trim()
-        )
-      );
+      // await mailSender(
+      //   email?.trim(),
+      //   `Congcongratulations,${full_name?.trim()}`,
+      //   registrationSuccessfully(
+      //     full_name?.trim(),
+      //     String(result?.[0]?.cust_id)?.trim(),
+      //     password?.trim()
+      //   )
+      // );
       return res
         .status(200)
         .json(returnResponse(true, false, "Registration Successfully", []));
