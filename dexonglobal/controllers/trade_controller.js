@@ -8,8 +8,8 @@ exports.getMyTrades = async (req, res, next) => {
       `SELECT
          tr12_mt_id          AS id,
          tr12_trans_id       AS transaction,
-         tr12_pair_name      AS pair,
          tr12_pnl            AS pnl,
+         tr12_order_type     AS type,
          tr12_crypto_name    AS coin,
          tr12_order_position AS position,
          DATE(tr12_created_at)     AS closedAt
