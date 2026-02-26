@@ -4,19 +4,6 @@ const { queryDb } = require("../helper/utilityHelper");
 exports.getMyTrades = async (req, res, next) => {
   const userId = req.userId;
   try {
-    const check = await queryDb(
-      `SELECT COUNT(*) AS cnt
-       FROM tr12_member_trades
-       WHERE tr12_reg_id = ?
-         AND tr12_pair_name = 'SYSTEM/ROI'
-         AND DATE(tr12_created_at) = CURDATE()`,
-      [userId]
-    );
-
-    if (Number(check?.[0]?.cnt || 0) === 0) {
-      await queryDb(`CALL sp_daily_trade_closing(?);`, [userId]);
-    }
-
     const trades = await queryDb(
       `SELECT
          tr12_mt_id          AS id,
@@ -31,7 +18,6 @@ exports.getMyTrades = async (req, res, next) => {
        ORDER BY tr12_created_at DESC`,
       [userId]
     );
-    console.log(trades)
 
     return res.status(200).json(
       returnResponse(true, false, "Trades fetched successfully.", trades)
