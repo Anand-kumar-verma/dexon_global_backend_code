@@ -1,7 +1,7 @@
 "user-strict";
 const express = require("express");
 const { userLogin, userRegistration, adminLogin } = require("../auth");
-const { getDistributorNameById, member_topup_by_admin, ZPpayInRequest_Dummy_Entry, ZPpayInRequest, userActivationFromSpotWallet, getReportDeails, getRewardAchieversList, claimedReward, memberPayout, withdrawalApprovalFromAdmin, getMemberPayoutReport, memberDashboard, memberCompounding, claimIncome, createUserWallet, perFormTransactoin, chaimPendingTransaction, getPendingWalletHistory, getDownlineTeamTree, getDownlineTeamTreeAdmin, getDownlineTeam, totalLevelWiseMember, updateMemberProfile, getMasterData, updateGeneralStatus, getMemberDetail, getMemberListByAdmin, admin_dashboard, getMemberDashboard, fundTransferP2P, memberDashboardBusiness, getNewsAndUpdated, updateNewsAndUpdated, updateNewsAndUpdatedStatus, getGlobalPayoutHisatory, member_global_live_transacton_activity } = require("../controllers/controller");
+const { getDistributorNameById, member_topup_by_admin, ZPpayInRequest_Dummy_Entry, ZPpayInRequest, userActivationFromSpotWallet, getReportDeails, getRewardAchieversList, claimedReward, memberPayout, withdrawalApprovalFromAdmin, getMemberPayoutReport, memberDashboard, memberCompounding, claimIncome, createUserWallet, perFormTransactoin, chaimPendingTransaction, getPendingWalletHistory, getDownlineTeamTree, getDownlineTeamTreeAdmin, getDownlineTeam, totalLevelWiseMember, updateMemberProfile, getMasterData, updateGeneralStatus, getMemberDetail, getMemberListByAdmin, admin_dashboard, getMemberDashboard, fundTransferP2P, memberDashboardBusiness, getNewsAndUpdated, updateNewsAndUpdated, updateNewsAndUpdatedStatus, createTradePair, updateTradePairStatus, deleteTradePair, getGlobalPayoutHisatory, member_global_live_transacton_activity, getTradePair } = require("../controllers/controller");
 const { checkAuth, isAdmin } = require("../middleware");
 const { getMyTrades } = require("../controllers/trade_controller");
 
@@ -74,11 +74,18 @@ router.get("/get-master-data", getMasterData);
 router.get("/get-news-and-updates", getNewsAndUpdated);
 router.post("/update-news-and-updates", updateNewsAndUpdated);
 router.post("/update-news-and-updates-status", updateNewsAndUpdatedStatus);
+
 router.post("/udpate-master-data", checkAuth, isAdmin, updateGeneralStatus);
 router.post("/member-details", checkAuth, isAdmin, getMemberListByAdmin);
 router.get("/get-admin-dashboard", checkAuth, admin_dashboard);
 router.get("/get-member-global-live-transaction-activity", checkAuth, member_global_live_transacton_activity);
 
 router.get("/get-trades",checkAuth,getMyTrades);
+
+// trading and pairs
+router.post("/create-trade-pair", checkAuth, isAdmin, createTradePair);
+router.post("/update-trade-pair-status", checkAuth, isAdmin, updateTradePairStatus);
+router.post("/delete-trade-pair", checkAuth, isAdmin, deleteTradePair);
+router.post("/get-trade-pair", checkAuth, isAdmin, getTradePair);
 
 module.exports = router;

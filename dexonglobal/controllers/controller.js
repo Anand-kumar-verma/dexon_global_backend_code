@@ -2283,6 +2283,134 @@ exports.updateNewsAndUpdatedStatus = async (req, res, next) => {
     }
 };
 
+exports.createTradePair = async (req, res, next) => {
+    try {
+        const { pair_name = "", status = 1 } = req.body;
+
+        if (!pair_name?.trim())
+            return res
+                .status(201)
+                .json(returnResponse(false, true, "pair_name is required!", []));
+
+        await queryDb(
+            "INSERT INTO `m07_trde_list`(`m07_pair_name`,`m07_status`) VALUES(?,?);",
+            [pair_name.trim(), Number(status) === 1 ? 1 : 0],
+        );
+
+        return res
+            .status(200)
+            .json(returnResponse(true, false, "Trade pair created successfully!", []));
+    } catch (err) {
+        console.error(err);
+        next(err);
+    }
+};
+
+exports.updateTradePairStatus = async (req, res, next) => {
+    try {
+        const { id = null, status = null } = req.body;
+
+        if (!id)
+            return res
+                .status(201)
+                .json(returnResponse(false, true, "id is required!", []));
+
+        await queryDb(
+            "UPDATE `m07_trde_list` SET `m07_status` = case when `m07_status` = 1 then 0 else 1 end WHERE `m07_td_id` = ? LIMIT 1;",
+            [Number(id)],
+        );
+
+
+        return res 
+            .status(200)
+            .json(returnResponse(true, false, "Trade pair status updated successfully!", []));
+    } catch (err) {
+        console.error(err);
+        next(err);
+    }
+};
+
+exports.deleteTradePair = async (req, res, next) => {
+    try {
+        const { id = null } = req.body;
+
+        if (!id)
+            return res
+                .status(201)
+                .json(returnResponse(false, true, "id is required!", []));
+
+        await queryDb(
+            "DELETE FROM `m07_trde_list` WHERE `m07_td_id` = ? LIMIT 1;",
+            [Number(id)],
+        );
+
+        return res
+            .status(200)
+            .json(returnResponse(true, false, "Trade pair deleted successfully!", []));
+    } catch (err) {
+        console.error(err);
+        next(err);
+    }
+};
+exports.getTradePair = async (req, res, next) => {
+    const u_id = req.userId;
+    const role = req.role;
+
+    try {
+        const {
+            search = "",
+            start_date = "",
+            end_date = "",
+            page = 1,
+            count = 10,
+            status = null,
+        } = req.body;
+
+        const pageNumber = Math.max(Number(page), 1);
+        const pageSize = Math.max(Number(count), 1);
+        const offset = (pageNumber - 1) * pageSize;
+
+        let baseQuery = `SELECT * FROM m07_trde_list`;
+        let countQuery = `SELECT COUNT(*) AS cnt FROM m07_trde_list`;
+        let whereClause = ` WHERE 1`;
+
+        const paramsCount = [];
+        const paramsData = [];
+
+        // DATE Filter
+        if (start_date && end_date) {
+            const start = moment(start_date).format("YYYY-MM-DD");
+            const end = moment(end_date).format("YYYY-MM-DD");
+
+            whereClause += ` AND DATE(m07_created_at) BETWEEN ? AND ?`;
+            paramsCount.push(start, end);
+            paramsData.push(start, end);
+        }
+
+
+        const finalCountQuery = `${countQuery} ${whereClause}`;
+        const finalDataQuery = `${baseQuery} ${whereClause} ORDER BY m07_created_at DESC LIMIT ? OFFSET ?`;
+
+        paramsData.push(pageSize, offset);
+
+        const totalRowsResult = await queryDb(finalCountQuery, paramsCount);
+        const totalRows = Number(totalRowsResult?.[0]?.cnt) || 0;
+
+        const result = await queryDb(finalDataQuery, paramsData);
+
+        return res.status(200).json(
+            returnResponse(false, true, "Data fetched successfully.", {
+                data: result,
+                totalPage: Math.ceil(totalRows / pageSize),
+                currPage: pageNumber,
+            }),
+        );
+    } catch (e) {
+        console.log(e);
+        next(e);
+    }
+};
+
 exports.updateGeneralStatus = async (req, res, next) => {
     const { u_id = "", status_type = "launching", value = 0 } = req.body;
     if (!u_id || !status_type)
@@ -2434,3 +2562,4 @@ exports.member_global_live_transacton_activity = async (req, res, next) => {
         next(err);
     }
 };
+
