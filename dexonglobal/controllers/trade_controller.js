@@ -12,7 +12,7 @@ exports.getMyTrades = async (req, res, next) => {
          tr12_order_type     AS type,
          tr12_crypto_name    AS coin,
          tr12_order_position AS position,
-         DATE(tr12_created_at)     AS closedAt
+         tr12_created_at     AS closedAt
        FROM tr12_member_trades
        WHERE tr12_reg_id = ?
        ORDER BY tr12_created_at DESC`,
