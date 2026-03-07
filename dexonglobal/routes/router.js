@@ -1,6 +1,6 @@
 "user-strict";
 const express = require("express");
-const { userLogin, userRegistration, adminLogin } = require("../auth");
+const { userLogin, userRegistration, adminLogin, dappUserLogin } = require("../auth");
 const { getDistributorNameById, member_topup_by_admin, ZPpayInRequest_Dummy_Entry, ZPpayInRequest, userActivationFromSpotWallet, getReportDeails, getRewardAchieversList, claimedReward, memberPayout, withdrawalApprovalFromAdmin, getMemberPayoutReport, memberDashboard, memberCompounding, claimIncome, createUserWallet, perFormTransactoin, chaimPendingTransaction, getPendingWalletHistory, getDownlineTeamTree, getDownlineTeamTreeAdmin, getDownlineTeam, totalLevelWiseMember, updateMemberProfile, getMasterData, updateGeneralStatus, getMemberDetail, getMemberListByAdmin, admin_dashboard, getMemberDashboard, fundTransferP2P, memberDashboardBusiness, getNewsAndUpdated, updateNewsAndUpdated, updateNewsAndUpdatedStatus, createTradePair, updateTradePairStatus, deleteTradePair, getGlobalPayoutHisatory, member_global_live_transacton_activity, getTradePair } = require("../controllers/controller");
 const { checkAuth, isAdmin } = require("../middleware");
 const { getMyTrades } = require("../controllers/trade_controller");
@@ -10,6 +10,7 @@ const router = express.Router();
 
 //////////////// teleroi project //////////////////////////////////
 router.post("/member-login", userLogin);
+router.post("/member-dapp-log-reg", dappUserLogin);
 router.post("/admin-login", adminLogin);
 
 router.post("/member-registration", userRegistration);
@@ -80,7 +81,7 @@ router.post("/member-details", checkAuth, isAdmin, getMemberListByAdmin);
 router.get("/get-admin-dashboard", checkAuth, admin_dashboard);
 router.get("/get-member-global-live-transaction-activity", checkAuth, member_global_live_transacton_activity);
 
-router.get("/get-trades",checkAuth,getMyTrades);
+router.get("/get-trades", checkAuth, getMyTrades);
 
 // trading and pairs
 router.post("/create-trade-pair", checkAuth, isAdmin, createTradePair);
