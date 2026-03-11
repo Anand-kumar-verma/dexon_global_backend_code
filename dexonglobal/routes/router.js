@@ -1,7 +1,7 @@
 "user-strict";
 const express = require("express");
 const { userLogin, userRegistration, adminLogin, dappUserLogin } = require("../auth");
-const { getDistributorNameById, member_topup_by_admin, ZPpayInRequest_Dummy_Entry, ZPpayInRequest, userActivationFromSpotWallet, getReportDeails, getRewardAchieversList, claimedReward, memberPayout, withdrawalApprovalFromAdmin, getMemberPayoutReport, memberDashboard, memberCompounding, claimIncome, createUserWallet, perFormTransactoin, chaimPendingTransaction, getPendingWalletHistory, getDownlineTeamTree, getDownlineTeamTreeAdmin, getDownlineTeam, totalLevelWiseMember, updateMemberProfile, getMasterData, updateGeneralStatus, getMemberDetail, getMemberListByAdmin, admin_dashboard, getMemberDashboard, fundTransferP2P, memberDashboardBusiness, getNewsAndUpdated, updateNewsAndUpdated, updateNewsAndUpdatedStatus, createTradePair, updateTradePairStatus, deleteTradePair, getGlobalPayoutHisatory, member_global_live_transacton_activity, getTradePair, getPackageDetails, getPayoutCallback } = require("../controllers/controller");
+const { getDistributorNameById, member_topup_by_admin, ZPpayInRequest_Dummy_Entry, ZPpayInRequest, userActivationFromSpotWallet, getReportDeails, getRewardAchieversList, claimedReward, memberPayout, withdrawalApprovalFromAdmin, getMemberPayoutReport, memberDashboard, memberCompounding, claimIncome, createUserWallet, perFormTransactoin, chaimPendingTransaction, getPendingWalletHistory, getDownlineTeamTree, getDownlineTeamTreeAdmin, getDownlineTeam, totalLevelWiseMember, updateMemberProfile, getMasterData, updateGeneralStatus, getMemberDetail, getMemberListByAdmin, admin_dashboard, getMemberDashboard, fundTransferP2P, memberDashboardBusiness, getNewsAndUpdated, updateNewsAndUpdated, updateNewsAndUpdatedStatus, createTradePair, updateTradePairStatus, deleteTradePair, getGlobalPayoutHisatory, member_global_live_transacton_activity, getTradePair, getPackageDetails, getPayoutCallback, updateTradeProfit } = require("../controllers/controller");
 const { checkAuth, isAdmin } = require("../middleware");
 const { getMyTrades } = require("../controllers/trade_controller");
 
@@ -80,6 +80,7 @@ router.post("/udpate-master-data", checkAuth, isAdmin, updateGeneralStatus);
 router.post("/member-details", checkAuth, isAdmin, getMemberListByAdmin);
 router.get("/get-admin-dashboard", checkAuth, admin_dashboard);
 router.get("/get-member-global-live-transaction-activity", checkAuth, member_global_live_transacton_activity);
+router.post("/update-trade-profit",checkAuth,updateTradeProfit);
 
 router.get("/get-trades", checkAuth, getMyTrades);
 router.get("/get-package-details", checkAuth, getPackageDetails);

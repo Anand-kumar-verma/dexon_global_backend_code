@@ -2914,5 +2914,48 @@ exports.getPayoutCallback = async (req, res, next) => {
     }
 };
 
+exports.updateTradeProfit = async (req, res) => {
+  try {
+    const { m05_id, m05_profit, m05_profit1 } = req.body;
 
+    if (!m05_id || m05_profit === undefined || m05_profit1 === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: "Package ID, Profit From and Profit To are required.",
+      });
+    }
+
+    if (parseFloat(m05_profit) > parseFloat(m05_profit1)) {
+      return res.status(400).json({
+        success: false,
+        message: "Profit From cannot be greater than Profit To.",
+      });
+    }
+
+    const updated = await queryDb(
+      `UPDATE m05_roi_cond 
+       SET m05_profit = ?, m05_profit1 = ?
+       WHERE m05_id = ?`,
+      [m05_profit, m05_profit1, m05_id]
+    );
+
+    if (updated.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Package not found.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "ROI condition updated successfully.",
+    });
+  } catch (error) {
+    console.error("updateTradeProfit error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error.",
+    });
+  }
+};
 
