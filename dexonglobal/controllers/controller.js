@@ -9,7 +9,7 @@ const sequlize = require("../config/seq.config");
 const crypto = require("crypto");
 const axios = require("axios");
 const { isValidEmail, isValidMobile } = require("../validation/validation");
-
+require("dotenv").config();
 const ERC20_ABI = [
     "function balanceOf(address owner) view returns (uint256)",
     "function transfer(address to, uint256 amount) returns (bool)",
@@ -196,7 +196,7 @@ exports.ZPpayInRequest_Dummy_Entry = async (req, res) => {
     const decriptData = deCryptData(payload);
     const {
         market_price,
-        req_token,
+        req_amount,
         pkg_id,
         u_user_wallet_address,
         u_transaction_hash,
@@ -208,19 +208,20 @@ exports.ZPpayInRequest_Dummy_Entry = async (req, res) => {
     try {
         const cond = await queryDb("SELECT fn_payin_conditions(?,?) AS msg;", [
             Number(userid),
-            Number(req_token || 0),
+            Number(req_amount || 0),
         ]);
         if (cond?.[0]?.msg !== "1")
             return res
                 .status(201)
                 .json(returnResponse(false, true, cond?.[0]?.msg, []));
+
         let tr_insert =
             "INSERT INTO `tr53_transactions_records`(`tr_trans_id`,`tr_user_id`,`tr_phid`,`tr_amount`,`tr_from_wallet`,`tr_req_params`) VALUES(?,?,?,?,?,?);";
         const last_id = await queryDb(tr_insert, [
             randomStrNumeric(10),
             Number(userid),
             Number(userid),
-            Number(req_token || 0),
+            Number(req_amount || 0),
             u_user_wallet_address,
             JSON.stringify(decriptData),
         ]);
@@ -248,7 +249,7 @@ exports.ZPpayInRequest = async (req, res) => {
     const decriptData = deCryptData(payload);
     const {
         last_id,
-        req_token,
+        req_amount,
         market_price,
         pkg_id,
         u_user_wallet_address,
@@ -272,27 +273,19 @@ exports.ZPpayInRequest = async (req, res) => {
                 "SELECT `tr_trans_id`,`tr_amount` FROM `tr53_transactions_records` WHERE `tr_id` = ? LIMIT 1;",
                 [Number(last_id)],
             );
-            // let q =
-            //   "INSERT INTO `tr07_manage_ledger`(`m_u_id`,`m_trans_id`,`m_cramount`,`m_description`,`m_ledger_type`,`m_bal_type`) VALUES(?,?,?,?,?,?);";
-            // let re = [
-            //   Number(userid),
-            //   tr_id?.[0]?.tr_trans_id,
-            //   Number(tr_id?.[0]?.tr_amount || 0)?.toFixed(4),
-            //   "USDT Deposit Successfully! From Gateway.",
-            //   1,
-            //   2,
-            // ];
-            // await queryDb(q, re);
+            const getPreBal = await queryDb("SELECT IFNULL(`tr03_fund_wallet`,0) AS pre_bal FROM `tr03_user_details` WHERE `tr03_reg_id` =? LIMIT 1;", [
+                userid
+            ]);
             let q = `
         INSERT INTO tr07_manage_ledger(tr07_reg_id,tr07_trans_id,tr07_main_label,tr07_sub_label,tr07_open_bal,tr07_tr_amount,tr07_clos_bal,tr07_credit,tr07_description,tr07_help_id) 
 		VALUES(
 			?,
 			?,
 			'IN',
-			'SPOT WALLET',
-			0,
+			'FUND WALLET',
 			?,
-			0,
+			?,
+			?,
 			1,
 			CONCAT('DEPOSIT FROM GATEWAY'),
 			?
@@ -301,7 +294,9 @@ exports.ZPpayInRequest = async (req, res) => {
             await queryDb(q, [
                 Number(userid),
                 tr_id?.[0]?.tr_trans_id,
+                Number(getPreBal?.[0]?.pre_bal || 0),
                 Number(tr_id?.[0]?.tr_amount || 0)?.toFixed(4),
+                Number(Number(getPreBal?.[0]?.pre_bal || 0) + Number(tr_id?.[0]?.tr_amount || 0))?.toFixed(4),
                 Number(last_id),
             ]);
         }
@@ -310,7 +305,7 @@ exports.ZPpayInRequest = async (req, res) => {
         // let re = [
         //   Number(userid),
         //   randomStrNumeric(20),
-        //   Number(req_token),
+        //   Number(req_amount),
         //   Number(pkg_id),
         //   "gateway",
         //   "Topup by gateway",
@@ -635,7 +630,8 @@ exports.memberPayout = async (req, res, next) => {
         const {
             wallet_address,
             user_amount,
-            wallet_type = "fund_wallet", // income_wallet // topup_wallet 
+            package_id = null,
+            wallet_type = "fund_wallet", // earning_wallet // capital_wallet // growth_wallet 
         } = deCryptData(req.body?.payload || "");
 
         const wdrl_net_amnt = user_amount;
@@ -652,9 +648,14 @@ exports.memberPayout = async (req, res, next) => {
                 .json(returnResponse(false, true, "Invalid BEP20 wallet address.", []));
         }
 
+        if ((wallet_type === "growth_wallet" || wallet_type === "capital_wallet") && !package_id) {
+            return res.status(201).json(returnResponse(false, true, "Package id is required for growth wallet and capital wallet withdrawal.", []));
+        }
+
+
         const getFirstRec = await queryDb(
-            `SELECT fn_withdrawal_conditions(?,?,?) as msg;`,
-            [u_id, wdrl_net_amnt || 0, wallet_type],
+            `SELECT fn_withdrawal_conditions(?,?,?,?) as msg;`,
+            [u_id, package_id || 0, wdrl_net_amnt || 0, wallet_type],
         );
 
         const data = getFirstRec?.[0];
@@ -662,7 +663,7 @@ exports.memberPayout = async (req, res, next) => {
             return res.status(201).json(returnResponse(false, true, data?.msg, []));
         }
 
-        let re = wallet_type === "fund_wallet" ? [6] : wallet_type === "topup_wallet" ? [7] : [8];
+        let re = wallet_type === "fund_wallet" ? [6] : (wallet_type === "earning_wallet" || wallet_type === "growth_wallet") ? [7] : [8];
 
         const master_data = await queryDb(
             "SELECT m00_value FROM `m00_master_config` WHERE `m00_id` = ? LIMIT 1;",
@@ -675,45 +676,47 @@ exports.memberPayout = async (req, res, next) => {
 
         const l_id = await queryDb(
             `INSERT INTO tr11_member_payout
-                (tr11_usr_id,tr11_transacton_id,tr11_amont,tr11_charges,tr11_payout_to,tr11_wallet_type)
-                VALUES (?,?,?,?,?,?)`,
+                (tr11_usr_id,tr11_transacton_id,tr11_pkg_id,tr11_amont,tr11_charges,tr11_payout_to,tr11_wallet_type)
+                VALUES (?,?,?,?,?,?,?)`,
             [
                 u_id,
                 getRandom,
+                package_id || 0,
                 user_amount,
                 adminCharges,
                 wallet_address?.trim(),
-                wallet_type === "fund_wallet" ? 1 : wallet_type === "income_wallet" ? 2 : 3,
+                wallet_type === "fund_wallet" ? "Fund Wallet" : wallet_type === "earning_wallet" ? "Earning Wallet" : wallet_type === "growth_wallet" ? "Growth Wallet" : "Capital Wallet",
             ],
         );
-        let q = "SELECT `tr03_inc_wallet`,`tr03_topup_wallet`,`tr03_fund_wallet` FROM tr03_user_details WHERE tr03_reg_id = ? LIMIT 1;";
+        // let q = "SELECT `tr03_inc_wallet`,`tr03_topup_wallet`,`tr03_fund_wallet` FROM tr03_user_details WHERE tr03_reg_id = ? LIMIT 1;";
 
-        const userWallet = await queryDb(q, [u_id]);
+        // const userWallet = await queryDb(q, [u_id]);
 
         let open_bal = 0;
-        if (wallet_type === "fund_wallet") {
-            open_bal = Number(userWallet?.[0]?.tr03_fund_wallet || 0);
-        } else if (wallet_type === "topup_wallet") {
-            open_bal = Number(userWallet?.[0]?.tr03_topup_wallet || 0);
-        } else {
-            open_bal = Number(userWallet?.[0]?.tr03_inc_wallet || 0);
-        }
+        // if (wallet_type === "fund_wallet") {
+        //     open_bal = Number(userWallet?.[0]?.tr03_fund_wallet || 0);
+        // } else if (wallet_type === "topup_wallet") {
+        //     open_bal = Number(userWallet?.[0]?.tr03_topup_wallet || 0);
+        // } else {
+        //     open_bal = Number(userWallet?.[0]?.tr03_inc_wallet || 0);
+        // }
 
         await queryDb(
             `INSERT INTO tr07_manage_ledger
-                    (tr07_reg_id,tr07_trans_id,tr07_main_label,tr07_sub_label,tr07_open_bal,tr07_tr_amount,tr07_clos_bal,tr07_debit,tr07_description,tr07_help_id,tr07_payout)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,1)`,
+                    (tr07_reg_id,tr07_trans_id,tr07_main_label,tr07_sub_label,tr07_open_bal,tr07_tr_amount,tr07_clos_bal,tr07_debit,tr07_description,tr07_help_id,tr07_payout,tr07_help_lev)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,1,?)`,
             [
                 u_id,
                 getRandom,
                 "OUT",
-                wallet_type === "fund_wallet" ? "FUND WALLET" : wallet_type === "topup_wallet" ? "TOPUP WALLET" : "INCOME WALLET",
+                wallet_type === "fund_wallet" ? "FUND WALLET" : wallet_type === "earning_wallet" ? "INCOME WALLET" : wallet_type === "growth_wallet" ? "COMPOUNDING" : "TOPUP WALLET",
                 open_bal,
                 Number(user_amount),
                 open_bal - Number(user_amount),
                 1,
                 "Member Payout For Trans:" + getRandom,
                 l_id,
+                package_id || 0,
             ],
         );
         const master_payout = await queryDb(
@@ -721,11 +724,58 @@ exports.memberPayout = async (req, res, next) => {
             [],
         );
 
-        if (String(master_payout?.[0]?.m00_status || 0) == "0") {
+        if (String(master_payout?.[0]?.m00_status || 0) == "0" || wallet_type === "capital_wallet") {
             return res
                 .status(200)
                 .json(returnResponse(true, false, master_payout?.[0]?.m00_comment, []));
         }
+
+
+        const formData = new FormData();
+        formData.append("userid", "dexonglobal0903@gmail.com");
+        formData.append("token", "53681672071799621003140243385879");
+        formData.append("txtcoin", "USDT.BEP20");
+        formData.append("txtaddress", wallet_address?.trim());
+        formData.append("txtamount", String(withdrawalableAmount));
+        formData.append("transactionId", getRandom);
+        formData.append("call_back_url", process.env.TRADING_POOL_DOMAIN + "/api/v9/payout-callback?trans_id=" + getRandom);
+
+        const apiRes = await axios.post("https://cryptofit.biz/v1/Payoutm/payout_gateway", formData);
+
+        if (apiRes?.data?.result?.status_text?.toLocaleLowerCase() === "complete") {
+            await queryDb(
+                `UPDATE tr11_member_payout 
+                        SET tr11_status = 1,
+                            tr11_hash = ?,
+                            tr11_api_res = ?,
+                            tr11_approval_date = NOW()
+                        WHERE tr11_transacton_id = ? LIMIT 1;`,
+                [
+                    "XXXXXXXXXXXXXX",
+                    JSON.stringify(apiRes?.data || {}),
+                    getRandom,
+                ],
+            );
+        } else {
+            await queryDb(
+                `UPDATE tr11_member_payout 
+                        SET tr11_status = 'Processing',
+                            tr11_hash = ?,
+                            tr11_api_res = ?
+                        WHERE tr11_transacton_id = ? LIMIT 1;`,
+                [
+                    "XXXXXXXXXXXXXX",
+                    JSON.stringify(apiRes?.data || {}),
+                    getRandom,
+                ],
+            );
+        }
+
+        return res
+            .status(200)
+            .json(returnResponse(true, false, apiRes?.data?.message || apiRes?.data?.msg || "Withdrawal Successfully Proceed", []));
+
+
         // Provider (ethers v5)
         const provider = new ethers.providers.JsonRpcProvider(
             "https://bsc-dataseed.binance.org",
@@ -858,9 +908,58 @@ exports.withdrawalApprovalFromAdmin = async (req, res) => {
             );
     }
 
+
+
     try {
         const wallet_add_real = withdrawal_record?.[0]?.tr11_payout_to;
         const wdrl_net_amnt = withdrawal_record?.[0]?.tr11_net_amnt; // USD / USDT amount
+
+
+
+        const formData = new FormData();
+        formData.append("userid", "dexonglobal0903@gmail.com");
+        formData.append("token", "53681672071799621003140243385879");
+        formData.append("txtcoin", "USDT.BEP20");
+        formData.append("txtaddress", wallet_add_real?.trim());
+        formData.append("txtamount", String(wdrl_net_amnt));
+        formData.append("transactionId", withdrawal_record?.[0]?.tr11_transacton_id);
+        formData.append("call_back_url", process.env.TRADING_POOL_DOMAIN + "/api/v9/payout-callback?trans_id=" + getRandom);
+
+        const apiRes = await axios.post("https://cryptofit.biz/v1/Payoutm/payout_gateway", formData);
+
+        if (apiRes?.data?.result?.status_text?.toLocaleLowerCase() === "complete") {
+            await queryDb(
+                `UPDATE tr11_member_payout 
+                        SET tr11_status = 1,
+                            tr11_hash = ?,
+                            tr11_api_res = ?,
+                            tr11_approval_date = NOW()
+                        WHERE tr11_id = ? LIMIT 1;`,
+                [
+                    "XXXXXXXXXXXXXX",
+                    JSON.stringify(apiRes?.data || {}),
+                    t_id,
+                ],
+            );
+        } else {
+            await queryDb(
+                `UPDATE tr11_member_payout 
+                        SET tr11_status = 'Processing',
+                            tr11_hash = ?,
+                            tr11_api_res = ?
+                        WHERE tr11_id = ? LIMIT 1;`,
+                [
+                    "XXXXXXXXXXXXXX",
+                    JSON.stringify(apiRes?.data || {}),
+                    t_id,
+                ],
+            );
+        }
+
+
+        return res
+            .status(200)
+            .json(returnResponse(true, false, apiRes?.data?.message || "Withdrawal Successfully Proceed", []));
 
         const provider = new ethers.providers.JsonRpcProvider(
             "https://bsc-dataseed.binance.org/",
@@ -2134,8 +2233,18 @@ exports.totalLevelWiseMember = async (req, res, next) => {
 exports.updateMemberProfile = async (req, res, next) => {
     const userId = req.userId;
     try {
-        const { email, oldPass, newPass, name, mobile, wallet } = req.body;
+        const { email, newPass, name, mobile, wallet_address } = req.body;
 
+        const idAlreadyTopup = await queryDb(
+            "SELECT 1 FROM `tr09_member_topup` WHERE `tr09_user_id` = ? AND `tr09_roi_status` = 1 LIMIT 1;",
+            [userId],
+        );
+
+        if (!(idAlreadyTopup?.length > 0)) {
+            return res
+                .status(201)
+                .json(returnResponse(false, true, "You have to do at least one topup to update profile!"));
+        }
         const fields = [];
         const values = [];
 
@@ -2155,12 +2264,12 @@ exports.updateMemberProfile = async (req, res, next) => {
             fields.push("`lgn_mobile` = ?");
             values.push(mobile);
         }
-        if (oldPass && newPass) {
-            const oldPss = await queryDb("SELECT lgn_pass FROM `tr01_login_credential` WHERE lgn_jnr_id = ? LIMIT 1;", [userId]);
-            if (oldPss?.[0]?.lgn_pass !== oldPass)
-                return res
-                    .status(201)
-                    .json(returnResponse(false, true, "Old password does not match."));
+        if (newPass) {
+            // const oldPss = await queryDb("SELECT lgn_pass FROM `tr01_login_credential` WHERE lgn_jnr_id = ? LIMIT 1;", [userId]);
+            // if (oldPss?.[0]?.lgn_pass !== oldPass)
+            //     return res
+            //         .status(201)
+            //         .json(returnResponse(false, true, "Old password does not match."));
             fields.push("`lgn_pass` = ?");
             values.push(newPass);
         }
@@ -2168,7 +2277,10 @@ exports.updateMemberProfile = async (req, res, next) => {
             fields.push("`lgn_name` = ?");
             values.push(name);
         }
-
+        if (wallet_address) {
+            fields.push("`lgn_wallet_add` = ?");
+            values.push(wallet_address?.trim());
+        }
         if (fields.length === 0) {
             return res
                 .status(201)
@@ -2321,7 +2433,7 @@ exports.updateTradePairStatus = async (req, res, next) => {
         );
 
 
-        return res 
+        return res
             .status(200)
             .json(returnResponse(true, false, "Trade pair status updated successfully!", []));
     } catch (err) {
@@ -2505,12 +2617,12 @@ exports.getMemberListByAdmin = async (req, res, next) => {
         if (search) {
             const s = `%${search}%`;
             const searchCondition = `
-        AND (
-          lgn_email LIKE ? OR 
-          lgn_mobile LIKE ? OR 
-          lgn_cust_id LIKE ? OR 
-          lgn_name LIKE ?
-        )`;
+                    AND (
+                        lgn_email LIKE ? OR 
+                        lgn_mobile LIKE ? OR 
+                        lgn_cust_id LIKE ? OR 
+                        lgn_name LIKE ?
+                    )`;
             countQuery += searchCondition;
             baseQuery += searchCondition;
             reP.push(s, s, s, s);
@@ -2530,6 +2642,63 @@ exports.getMemberListByAdmin = async (req, res, next) => {
                 true,
 
                 "Member List fetched.",
+                {
+                    data: result,
+                    totalPage: Math.ceil(totalRows / pageSize),
+                    currPage: pageNumber,
+                },
+            ),
+        );
+    } catch (e) {
+        console.log(e);
+        next(e);
+    }
+};
+exports.getPackageDetails = async (req, res, next) => {
+    try {
+        const {
+            search = "",
+            start_date = "",
+            end_date = "",
+            page = 1,
+            count = 10,
+        } = req.body;
+        const pageNumber = Math.max(Number(page), 1);
+        const pageSize = Math.max(Number(count), 1);
+        const offset = (pageNumber - 1) * pageSize;
+
+        let countQuery = `SELECT COUNT(*) AS cnt FROM m05_roi_cond WHERE 1 `;
+        let baseQuery = `
+      SELECT * FROM m05_roi_cond WHERE 1 `;
+
+        let reP = [];
+        let reB = [];
+
+        // Date filter
+        if (start_date && end_date) {
+            const start = moment(start_date).format("YYYY-MM-DD");
+            const end = moment(end_date).format("YYYY-MM-DD");
+            countQuery += " AND DATE(m05_created_at) BETWEEN ? AND ?";
+            baseQuery += " AND DATE(m05_created_at) BETWEEN ? AND ?";
+            reP.push(start, end);
+            reB.push(start, end);
+        }
+
+
+
+        baseQuery += " ORDER BY m05_created_at DESC LIMIT ? OFFSET ?";
+        reB.push(pageSize, offset);
+
+        const totalRowsResult = await queryDb(countQuery, reP);
+        const totalRows = Number(totalRowsResult?.[0]?.cnt) || 0;
+        const result = await queryDb(baseQuery, reB);
+
+        return res.status(200).json(
+            returnResponse(
+                false,
+                true,
+
+                "Package Details fetched.",
                 {
                     data: result,
                     totalPage: Math.ceil(totalRows / pageSize),
@@ -2562,4 +2731,188 @@ exports.member_global_live_transacton_activity = async (req, res, next) => {
         next(err);
     }
 };
+
+exports.dummyActivationPayinRequest = async (req, res) => {
+    const userid = req.userId;
+
+
+    const { payload } = req.body;
+    const decriptData = deCryptData(payload);
+    const {
+        req_amount,
+        pkg_id = 0,
+        u_user_wallet_address = "",
+        u_transaction_hash,
+        u_trans_status,
+        currentBNB,
+        currentZP,
+        gas_price,
+        deposit_type = "Mlm",
+    } = decriptData;
+
+    try {
+        const ifProfileUpdated = await queryDbProchainXLive(
+            "SELECT lgn_is_deposit FROM bnb_chain_login_credential WHERE lgn_jnr_id = ? LIMIT 1;",
+            [Number(userid)],
+        );
+        if (deposit_type !== "Mlm")
+            if (
+                ifProfileUpdated?.[0]?.lgn_is_deposit === "Active" ||
+                !ifProfileUpdated?.[0]?.lgn_is_deposit
+            ) {
+                return res
+                    .status(201)
+                    .json(
+                        returnResponse(
+                            false,
+                            false,
+                            "Network issues, Please Try after some time!",
+                            [],
+                        ),
+                    );
+            }
+
+        const isPayingActive = await queryDbProchainXLive(
+            "SELECT `config_status` FROM `bnb_chain_set_config` WHERE `config_id` = 4;",
+            [],
+        );
+
+        if (isPayingActive?.[0]?.config_status === "Deactive")
+            return res
+                .status(201)
+                .json(returnResponse(false, false, "Topup Service Comming Soon!", []));
+        let tr_insert =
+            "INSERT INTO `bnb_chain_transaction_details`(tr_package,tr_payable_usd,tr_transaction_id,`tr_user_id`,tr_deposit_type,tr_deposit_from,`tr_amount`,`tr_type`,`tr_dmmy_req_data`) VALUES(?,?,?,?,?,?,?,?,?);";
+        await queryDbProchainXLive(tr_insert, [
+            pkg_id,
+            gas_price,
+            Date.now() + randomStrNumeric(10),
+            Number(userid),
+            deposit_type,
+            u_user_wallet_address,
+            Number(req_amount),
+            1,
+            JSON.stringify(decriptData),
+        ]);
+        const last_id = await queryDbProchainXLive(
+            `SELECT LAST_INSERT_ID() AS last_in_id;`,
+            [],
+        );
+        let last_inserted_id = last_id?.[0]?.last_in_id;
+        return res.status(200).json({
+            error: false,
+            success: true,
+            msg: "Data Received Successfully",
+            last_id: last_inserted_id,
+            result: [],
+        });
+    } catch (e) {
+        console.log(e);
+        return res
+            .status(500)
+            .json(
+                returnResponse(true, false, e.message || `Internal Server Error`, []),
+            );
+    }
+};
+exports.activationReques = async (req, res) => {
+    const userid = req.userId;
+
+    const { payload } = req.body;
+    const decriptData = deCryptData(payload);
+    const {
+        last_id,
+        req_amount,
+        pkg_id,
+        u_user_wallet_address,
+        u_transaction_hash,
+        u_trans_status,
+        currentBNB,
+        currentZP,
+        gas_price,
+    } = decriptData;
+    try {
+        if (Number(u_trans_status) === 2) {
+            const ifPending = await queryDbProchainXLive(
+                "SELECT tr_id FROM bnb_chain_transaction_details WHERE `tr_status` = 2 AND `tr_id` = ? LIMIT 1;",
+                [Number(last_id)],
+            );
+            if (ifPending?.length > 0) {
+                let tr_insert =
+                    "UPDATE `bnb_chain_transaction_details` SET `tr_actual_req_data` = ?,tr_trans_hash=?,`tr_status` = ?,tr_usd_succ_date=NOW() WHERE `tr_id` = ?;";
+                await queryDbProchainXLive(tr_insert, [
+                    JSON.stringify(decriptData),
+                    String(u_transaction_hash)?.toLocaleLowerCase(),
+                    1,
+                    Number(last_id),
+                ]);
+                let q = "CALL bnb_chain_sp_topup(?,?,?,?,?,@res_msg);";
+                let re = [
+                    Number(userid),
+                    Number(req_amount),
+                    Number(pkg_id),
+                    "gateway",
+                    "Topup by user self",
+                ];
+                await queryDbProchainXLive(q, re);
+            }
+        } else {
+            let tr_insert =
+                "UPDATE `bnb_chain_transaction_details` SET `tr_actual_req_data` = ?,tr_trans_hash=?,`tr_status` = ? WHERE `tr_id` = ?;";
+            await queryDbProchainXLive(tr_insert, [
+                JSON.stringify(decriptData),
+                2,
+                String(u_transaction_hash)?.toLocaleLowerCase() || "",
+                Number(last_id),
+            ]);
+        }
+        return res
+            .status(200)
+            .json(returnResponse(false, true, "Payin Transaction Completed!", []));
+    } catch (e) {
+        return res
+            .status(500)
+            .json(
+                returnResponse(true, false, e.message || `Internal Server Error`, []),
+            );
+    }
+};
+
+exports.getPayoutCallback = async (req, res, next) => {
+    try {
+        const respose = req.body;
+        // {
+        //   error: 'ok',
+        //   status: 'Complete',
+        //   amt: '1.90000000',
+        //   send_address: '0xf1B0Fe828d749314c81f09dc27f14032091159DF',
+        //   trans_id: '499657298652215'
+        // }
+
+        if (respose?.status?.toLocaleLowerCase() === "complete") {
+            await queryDb(
+                `UPDATE tr11_member_payout 
+                        SET tr11_status = 1,
+                            tr11_hash = ?,
+                            tr11_api_res = ?,
+                            tr11_approval_date = NOW()
+                        WHERE tr11_transacton_id = ? LIMIT 1;`,
+                [
+                    "XXXXXXXXXXXXXX",
+                    JSON.stringify(respose || {}),
+                    respose?.trans_id,
+                ],
+            );
+        }
+
+        return res
+            .status(200)
+            .json(returnResponse(true, false, "Done", []));
+    } catch (err) {
+        console.error(err);
+        next(err);
+    }
+};
+
+
 
