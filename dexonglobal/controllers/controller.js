@@ -2959,3 +2959,51 @@ exports.updateTradeProfit = async (req, res) => {
   }
 };
 
+const { authenticator } = require("otplib");
+
+let _cachedSecret = null;
+
+async function getTotpSecret() {
+    if (_cachedSecret) return _cachedSecret;
+    const rows = await queryDb(
+        `SELECT m00_value FROM m00_master_config 
+         WHERE m00_title = 'TOTP_SECRET' AND m00_status = 1 LIMIT 1`,
+        []
+    );
+    _cachedSecret = rows?.[0]?.m00_value ?? null;
+    return _cachedSecret;
+}
+
+exports.verifyTotp = async (req, res, next) => {
+    try {
+        const { otp } = req.body;
+
+        if (!otp || !/^\d{6}$/.test(otp)) {
+            return res.status(400).json(
+                returnResponse(false, true, "OTP must be a 6-digit number", [])
+            );
+        }
+
+        const secret = await getTotpSecret();
+
+        if (!secret) {
+            return res.status(500).json(
+                returnResponse(false, true, "2FA is not configured on the server", [])
+            );
+        }
+        const isValid = authenticator.verify({ token: otp, secret });
+
+        if (!isValid) {
+            return res.status(401).json(
+                returnResponse(false, true, "Invalid or expired OTP code", [])
+            );
+        }
+
+        return res.status(200).json(
+            returnResponse(true, false, "OTP verified successfully", [])
+        );
+    } catch (err) {
+        console.error(err);
+        next(err);
+    }
+};

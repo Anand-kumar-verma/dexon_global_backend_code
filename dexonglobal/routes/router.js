@@ -1,7 +1,7 @@
 "user-strict";
 const express = require("express");
 const { userLogin, userRegistration, adminLogin, dappUserLogin } = require("../auth");
-const { getDistributorNameById, member_topup_by_admin, ZPpayInRequest_Dummy_Entry, ZPpayInRequest, userActivationFromSpotWallet, getReportDeails, getRewardAchieversList, claimedReward, memberPayout, withdrawalApprovalFromAdmin, getMemberPayoutReport, memberDashboard, memberCompounding, claimIncome, createUserWallet, perFormTransactoin, chaimPendingTransaction, getPendingWalletHistory, getDownlineTeamTree, getDownlineTeamTreeAdmin, getDownlineTeam, totalLevelWiseMember, updateMemberProfile, getMasterData, updateGeneralStatus, getMemberDetail, getMemberListByAdmin, admin_dashboard, getMemberDashboard, fundTransferP2P, memberDashboardBusiness, getNewsAndUpdated, updateNewsAndUpdated, updateNewsAndUpdatedStatus, createTradePair, updateTradePairStatus, deleteTradePair, getGlobalPayoutHisatory, member_global_live_transacton_activity, getTradePair, getPackageDetails, getPayoutCallback, updateTradeProfit } = require("../controllers/controller");
+const { getDistributorNameById, member_topup_by_admin, ZPpayInRequest_Dummy_Entry, ZPpayInRequest, userActivationFromSpotWallet, getReportDeails, getRewardAchieversList, claimedReward, memberPayout, withdrawalApprovalFromAdmin, getMemberPayoutReport, memberDashboard, memberCompounding, claimIncome, createUserWallet, perFormTransactoin, chaimPendingTransaction, getPendingWalletHistory, getDownlineTeamTree, getDownlineTeamTreeAdmin, getDownlineTeam, totalLevelWiseMember, updateMemberProfile, getMasterData, updateGeneralStatus, getMemberDetail, getMemberListByAdmin, admin_dashboard, getMemberDashboard, fundTransferP2P, memberDashboardBusiness, getNewsAndUpdated, updateNewsAndUpdated, updateNewsAndUpdatedStatus, createTradePair, updateTradePairStatus, deleteTradePair, getGlobalPayoutHisatory, member_global_live_transacton_activity, getTradePair, getPackageDetails, getPayoutCallback, updateTradeProfit, verifyTotp } = require("../controllers/controller");
 const { checkAuth, isAdmin } = require("../middleware");
 const { getMyTrades } = require("../controllers/trade_controller");
 
@@ -90,6 +90,7 @@ router.post("/create-trade-pair", checkAuth, isAdmin, createTradePair);
 router.post("/update-trade-pair-status", checkAuth, isAdmin, updateTradePairStatus);
 router.post("/delete-trade-pair", checkAuth, isAdmin, deleteTradePair);
 router.post("/get-trade-pair", checkAuth, isAdmin, getTradePair);
+router.post("/verify_totp",checkAuth,isAdmin,verifyTotp);
 
 // webhook
 router.post("/payout-callback",  getPayoutCallback);
