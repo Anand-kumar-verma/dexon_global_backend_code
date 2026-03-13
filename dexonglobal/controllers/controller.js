@@ -2233,43 +2233,34 @@ exports.totalLevelWiseMember = async (req, res, next) => {
 exports.updateMemberProfile = async (req, res, next) => {
     const userId = req.userId;
     try {
-        const { email, newPass, name, mobile, wallet_address } = req.body;
+        const { email, newPass, name, mobile, wallet_address, type, editUserId, isBlocked } = req.body;
 
-        const idAlreadyTopup = await queryDb(
-            "SELECT 1 FROM `tr09_member_topup` WHERE `tr09_user_id` = ? AND `tr09_roi_status` = 1 LIMIT 1;",
-            [userId],
-        );
-
-        if (!(idAlreadyTopup?.length > 0)) {
-            return res
-                .status(201)
-                .json(returnResponse(false, true, "You have to do at least one topup to update profile!"));
+        if (type != 1) {
+            const idAlreadyTopup = await queryDb(
+                "SELECT 1 FROM `tr09_member_topup` WHERE `tr09_user_id` = ? AND `tr09_roi_status` = 1 LIMIT 1;",
+                [userId],
+            );
+            if (!(idAlreadyTopup?.length > 0)) {
+                return res.status(201).json(returnResponse(false, true, "You have to do at least one topup to update profile!"));
+            }
         }
+
         const fields = [];
         const values = [];
 
         if (email) {
             if (!isValidEmail(email))
-                return res
-                    .status(201)
-                    .json(returnResponse(false, true, "Invalid Email."));
+                return res.status(201).json(returnResponse(false, true, "Invalid Email."));
             fields.push("`lgn_email` = ?");
             values.push(email);
         }
         if (mobile) {
             if (!isValidMobile(mobile))
-                return res
-                    .status(201)
-                    .json(returnResponse(false, true, "Invalid Mobile."));
+                return res.status(201).json(returnResponse(false, true, "Invalid Mobile."));
             fields.push("`lgn_mobile` = ?");
             values.push(mobile);
         }
         if (newPass) {
-            // const oldPss = await queryDb("SELECT lgn_pass FROM `tr01_login_credential` WHERE lgn_jnr_id = ? LIMIT 1;", [userId]);
-            // if (oldPss?.[0]?.lgn_pass !== oldPass)
-            //     return res
-            //         .status(201)
-            //         .json(returnResponse(false, true, "Old password does not match."));
             fields.push("`lgn_pass` = ?");
             values.push(newPass);
         }
@@ -2281,26 +2272,33 @@ exports.updateMemberProfile = async (req, res, next) => {
             fields.push("`lgn_wallet_add` = ?");
             values.push(wallet_address?.trim());
         }
-        if (fields.length === 0) {
-            return res
-                .status(201)
-                .json(returnResponse(false, true, "No fields to update!"));
+
+        if (isBlocked !== undefined && isBlocked !== null && isBlocked !== "") {
+            const status = (isBlocked === true || isBlocked === "true" || isBlocked === "Yes") ? "Yes" : "No";
+            fields.push("`lgn_is_blocked` = ?");
+            values.push(status);
         }
 
-        const sql = `UPDATE \`tr01_login_credential\` SET ${fields.join(
-            ", ",
-        )} WHERE \`lgn_jnr_id\` = ?;`;
-        values.push(userId);
+        if (fields.length === 0) {
+            return res.status(201).json(returnResponse(false, true, "No fields to update!"));
+        }
+
+        const targetId = type === 1 ? editUserId : userId;
+        const sql = `UPDATE \`tr01_login_credential\` SET ${fields.join(", ")} WHERE \`lgn_jnr_id\` = ?;`;
+        values.push(targetId);
 
         await queryDb(sql, values);
 
-        return res
-            .status(200)
-            .json(returnResponse(true, false, "Updated Successfully", []));
+        const message = (isBlocked !== undefined && isBlocked !== null && isBlocked !== "" && fields.length === 1)
+            ? ((isBlocked === true || isBlocked === "true" || isBlocked === "Yes") ? "User blocked successfully." : "User unblocked successfully.")
+            : "Updated Successfully";
+
+        return res.status(200).json(returnResponse(true, false, message, []));
     } catch (err) {
         next(err);
     }
 };
+
 exports.getMasterData = async (req, res, next) => {
     try {
         const report = await queryDb(

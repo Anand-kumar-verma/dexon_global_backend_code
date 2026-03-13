@@ -235,7 +235,6 @@ exports.userLogin = async (req, res) => {
         .status(201)
         .json(returnResponse(false, true, "Your account is blocked", []));
     }
-
     const token = randomStrAlphabetNumeric(100);
     await queryDb(
       "UPDATE `tr01_login_credential` SET `lgn_token` = ?  WHERE `login_id` = ?;",
