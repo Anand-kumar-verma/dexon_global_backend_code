@@ -99,6 +99,6 @@ router.post("/payout-callback",  getPayoutCallback);
 // ticket and support
 router.post("/user-message", checkAuth, userMessage);
 router.post("/admin-reply", checkAuth, isAdmin, adminReply);
-router.post("/get-user-messages", checkAuth,isAdmin, getMessaage);
+router.post("/get-user-messages", checkAuth, getMessaage);
 
 module.exports = router;
