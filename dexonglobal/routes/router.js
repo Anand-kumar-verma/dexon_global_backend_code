@@ -1,7 +1,7 @@
 "user-strict";
 const express = require("express");
 const { userLogin, userRegistration, adminLogin, dappUserLogin } = require("../auth");
-const { getDistributorNameById, member_topup_by_admin, ZPpayInRequest_Dummy_Entry, ZPpayInRequest, userActivationFromSpotWallet, getReportDeails, getRewardAchieversList, claimedReward, memberPayout, withdrawalApprovalFromAdmin, getMemberPayoutReport, memberDashboard, memberCompounding, claimIncome, createUserWallet, perFormTransactoin, chaimPendingTransaction, getPendingWalletHistory, getDownlineTeamTree, getDownlineTeamTreeAdmin, getDownlineTeam, totalLevelWiseMember, updateMemberProfile, getMasterData, updateGeneralStatus, getMemberDetail, getMemberListByAdmin, admin_dashboard, getMemberDashboard, fundTransferP2P, memberDashboardBusiness, getNewsAndUpdated, updateNewsAndUpdated, updateNewsAndUpdatedStatus, createTradePair, updateTradePairStatus, deleteTradePair, getGlobalPayoutHisatory, member_global_live_transacton_activity, getTradePair, getPackageDetails, getPayoutCallback, updateTradeProfit, verifyTotp } = require("../controllers/controller");
+const { getDistributorNameById, member_topup_by_admin, ZPpayInRequest_Dummy_Entry, ZPpayInRequest, userActivationFromSpotWallet, getReportDeails, getRewardAchieversList, claimedReward, memberPayout, withdrawalApprovalFromAdmin, getMemberPayoutReport, memberDashboard, memberCompounding, claimIncome, createUserWallet, perFormTransactoin, chaimPendingTransaction, getPendingWalletHistory, getDownlineTeamTree, getDownlineTeamTreeAdmin, getDownlineTeam, totalLevelWiseMember, updateMemberProfile, getMasterData, updateGeneralStatus, getMemberDetail, getMemberListByAdmin, admin_dashboard, getMemberDashboard, fundTransferP2P, memberDashboardBusiness, getNewsAndUpdated, updateNewsAndUpdated, updateNewsAndUpdatedStatus, createTradePair, updateTradePairStatus, deleteTradePair, getGlobalPayoutHisatory, member_global_live_transacton_activity, getTradePair, getPackageDetails, getPayoutCallback, updateTradeProfit, verifyTotp, withdrawalPermission, tradePermission } = require("../controllers/controller");
 const { checkAuth, isAdmin } = require("../middleware");
 const { getMyTrades } = require("../controllers/trade_controller");
 const { userMessage, adminReply, getMessaage } = require("../controllers/ticketAndSupport");
@@ -100,5 +100,9 @@ router.post("/payout-callback",  getPayoutCallback);
 router.post("/user-message", checkAuth, userMessage);
 router.post("/admin-reply", checkAuth, isAdmin, adminReply);
 router.post("/get-user-messages", checkAuth, getMessaage);
+
+router.post("/member-withd-perm", checkAuth, isAdmin, withdrawalPermission);
+router.post("/member-trade-perm", checkAuth, isAdmin, tradePermission);
+
 
 module.exports = router;

@@ -3005,3 +3005,62 @@ exports.verifyTotp = async (req, res, next) => {
         next(err);
     }
 };
+
+
+exports.withdrawalPermission = async (req, res, next) => {
+    try {
+        const { customer_id, status } = req.body; 
+        if (status !== 0 && status !== 1) {
+            return res.status(400).json(returnResponse(false, true, "Invalid status value", []));
+        }
+        const checkUser = await queryDb(
+            "SELECT tr03_reg_id FROM tr03_user_details WHERE tr03_reg_id = ? LIMIT 1",
+            [customer_id]
+        );
+        if (!checkUser.length) {
+            return res.status(404).json(returnResponse(false, true, "User not found", []));
+        }
+        await queryDb(
+            "UPDATE tr03_user_details SET tr03_active_for_payout = ? WHERE tr03_reg_id = ?",
+            [status, customer_id]
+        );
+
+        const message =
+            status === 0
+                ? "Withdrawal Blocked Successfully"
+                : "Withdrawal Unblocked Successfully";
+
+        return res.status(200).json(returnResponse(true, false, message, []));
+    } catch (err) {
+        next(err);
+    }
+};
+
+exports.tradePermission = async (req, res, next) => {
+    try {
+        const { customer_id, status } = req.body; 
+        if (status !== 0 && status !== 1) {
+            return res.status(400).json(returnResponse(false, true, "Invalid status value", []));
+        }
+        const checkUser = await queryDb(
+            "SELECT tr03_reg_id FROM tr03_user_details WHERE tr03_reg_id = ? LIMIT 1",
+            [customer_id]
+        );
+        if (!checkUser.length) {
+            return res.status(404).json(returnResponse(false, true, "User not found", []));
+        }
+        await queryDb(
+            "UPDATE tr03_user_details SET tr03_active_for_trade = ? WHERE tr03_reg_id = ?",
+            [status, customer_id]
+        );
+
+        const message =
+            status === 0
+                ? "Trade Blocked Successfully"
+                : "Trade Unblocked Successfully";
+
+        return res.status(200).json(returnResponse(true, false, message, []));
+    } catch (err) {
+        next(err);
+    }
+};
