@@ -11,7 +11,7 @@ module.exports = {
 
       const bytes = CryptoJS.AES.decrypt(data, process.env.BODY_SECRET);
       const decrypted = bytes.toString(CryptoJS.enc.Utf8);
-
+      
       if (!decrypted) throw new Error("Decryption failed");
 
       return JSON.parse(decrypted);
