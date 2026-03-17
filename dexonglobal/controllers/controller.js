@@ -366,6 +366,7 @@ exports.getReportDeails = async (req, res, next) => {
             sub_label = "LEVEL",
             main_label = "ALL",
             is_global = false,
+            onlyP2PTransfer = false
         } = req.body;
 
         const pageNumber = Math.max(Number(page), 1);
@@ -436,6 +437,10 @@ exports.getReportDeails = async (req, res, next) => {
             whereClause += ` AND tr07_sub_label = ?`;
             paramsCount.push(sub_label);
             paramsData.push(sub_label);
+        }
+
+        if (onlyP2PTransfer) {
+            whereClause += ` AND tr07_help_id IS NOT NULL AND tr07_help_id <> tr07_reg_id `;
         }
         // Search Filter
         if (search) {
@@ -2233,9 +2238,9 @@ exports.totalLevelWiseMember = async (req, res, next) => {
 exports.updateMemberProfile = async (req, res, next) => {
     const userId = req.userId;
     try {
-        const { email, newPass, name, mobile, wallet_address, editUserId=null, isBlocked } = req.body;
+        const { email, newPass, name, mobile, wallet_address, editUserId = null, isBlocked } = req.body;
 
-        if (!editUserId) { 
+        if (!editUserId) {
             const idAlreadyTopup = await queryDb(
                 "SELECT 1 FROM `tr09_member_topup` WHERE `tr09_user_id` = ? AND `tr09_roi_status` = 1 LIMIT 1;",
                 [userId],
@@ -2244,9 +2249,9 @@ exports.updateMemberProfile = async (req, res, next) => {
                 return res.status(201).json(returnResponse(false, true, "You have to do at least one topup to update profile!"));
             }
         }
-        
+
         if (editUserId) {
-            await checkPermission("members.update_profile")(req, res, async () => {});
+            await checkPermission("members.update_profile")(req, res, async () => { });
             if (res.headersSent) return;
         }
 
@@ -2288,7 +2293,7 @@ exports.updateMemberProfile = async (req, res, next) => {
             return res.status(201).json(returnResponse(false, true, "No fields to update!"));
         }
 
-        const targetId = editUserId ||  userId;
+        const targetId = editUserId || userId;
         const sql = `UPDATE \`tr01_login_credential\` SET ${fields.join(", ")} WHERE \`lgn_jnr_id\` = ?;`;
         values.push(targetId);
 
@@ -3015,7 +3020,7 @@ exports.verifyTotp = async (req, res, next) => {
 
 exports.withdrawalPermission = async (req, res, next) => {
     try {
-        const { customer_id, status } = req.body; 
+        const { customer_id, status } = req.body;
         if (status !== 0 && status !== 1) {
             return res.status(400).json(returnResponse(false, true, "Invalid status value", []));
         }
@@ -3044,7 +3049,7 @@ exports.withdrawalPermission = async (req, res, next) => {
 
 exports.tradePermission = async (req, res, next) => {
     try {
-        const { customer_id, status } = req.body; 
+        const { customer_id, status } = req.body;
         if (status !== 0 && status !== 1) {
             return res.status(400).json(returnResponse(false, true, "Invalid status value", []));
         }
