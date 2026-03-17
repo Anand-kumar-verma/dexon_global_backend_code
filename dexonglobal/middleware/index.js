@@ -1,54 +1,64 @@
 require("dotenv").config();
-const jwt = require("jsonwebtoken");
 const { queryDb } = require("../helper/utilityHelper");
 const { returnResponse } = require("../helper/helperResponse");
 
 exports.checkAuth = async (req, res, next) => {
-  // Get token from the Authorization header
   const authHeader = req.headers.authorization;
-  if (!authHeader) {
+  if (!authHeader)
     return res
       .status(201)
       .json(returnResponse(false, true, "Authorization header is missing."));
-  }
+
   const [bearer, token] = authHeader.split(" ");
-  if (bearer !== "Bearer" || !token) {
+  if (bearer !== "Bearer" || !token)
     return res
       .status(201)
       .json(
         returnResponse(
           false,
           true,
-          "Invalid Authorization format. Must be Bearer <token>"
-        )
+          "Invalid Authorization format. Must be Bearer <token>",
+        ),
       );
-  }
+
   try {
-    const getUserDetails = await queryDb(
-      "SELECT `lgn_jnr_id`,`lgn_user_type`,lgn_wallet_add FROM `tr01_login_credential` WHERE `lgn_token` = ? LIMIT 1;",
-      [token]
+    const rows = await queryDb(
+      `SELECT login_id, lgn_jnr_id, lgn_user_type, lgn_wallet_add
+       FROM tr01_login_credential
+       WHERE lgn_token = ? LIMIT 1;`,
+      [token],
     );
-    if (getUserDetails?.length === 0)
+
+    if (!rows?.length)
       return res.status(201).json(returnResponse(false, true, "Invalid Token"));
 
-    req.userId = getUserDetails?.[0]?.lgn_jnr_id; // Attach the user ID to the request object
-    req.role = getUserDetails?.[0]?.lgn_user_type;
-    
+    const user = rows[0];
+
+    req.userId = user.lgn_jnr_id || user.login_id;
+    req.login_id = user.login_id;
+    req.role = user.lgn_user_type;
+    req.user = {
+      login_id: user.login_id,
+      user_type: user.lgn_user_type,
+      wallet_add: user.lgn_wallet_add,
+    };
+
     next();
   } catch (err) {
     return res
       .status(201)
       .json(
-        returnResponse(false, true, err?.message || "Invalid or expired token.")
+        returnResponse(
+          false,
+          true,
+          err?.message || "Invalid or expired token.",
+        ),
       );
   }
 };
-
 exports.isAdmin = (req, res, next) => {
-  const role = req.role;
-
   try {
-    if (role !== "Admin")
+    if (req.role !== "Admin")
       return res
         .status(201)
         .json(returnResponse(false, true, "Routes Available for Admin.", []));
@@ -57,15 +67,44 @@ exports.isAdmin = (req, res, next) => {
     return res
       .status(201)
       .json(
-        returnResponse(false, true, err?.message || "Invalid or expired token.")
+        returnResponse(
+          false,
+          true,
+          err?.message || "Invalid or expired token.",
+        ),
       );
   }
 };
-exports.isUser = (req, res, next) => {
-  const role = req.role;
-
+exports.isAdminSubAdmin = (req, res, next) => {
   try {
-    if (role !== "User")
+    if (req.role !== "Admin" && req.role != "SubAdmin")
+      return res
+        .status(201)
+        .json(
+          returnResponse(
+            false,
+            true,
+            "Routes Available for Admin and SubAdmin only.",
+            [],
+          ),
+        );
+    next();
+  } catch (err) {
+    return res
+      .status(201)
+      .json(
+        returnResponse(
+          false,
+          true,
+          err?.message || "Invalid or expired token.",
+        ),
+      );
+  }
+};
+
+exports.isUser = (req, res, next) => {
+  try {
+    if (req.role !== "User")
       return res
         .status(201)
         .json(returnResponse(false, true, "Routes Available for User.", []));
@@ -74,7 +113,65 @@ exports.isUser = (req, res, next) => {
     return res
       .status(201)
       .json(
-        returnResponse(false, true, err?.message || "Invalid or expired token.")
+        returnResponse(
+          false,
+          true,
+          err?.message || "Invalid or expired token.",
+        ),
+      );
+  }
+};
+
+exports.checkPermission = (permKey) => async (req, res, next) => {
+  try {
+    const { role, login_id: loginId } = req;
+
+    if (role === "Admin") return next();
+
+    if (role !== "SubAdmin")
+      return res
+        .status(201)
+        .json(
+          returnResponse(
+            false,
+            true,
+            "Access denied. Admin panel routes only.",
+            [],
+          ),
+        );
+
+    if (!loginId)
+      return res
+        .status(201)
+        .json(returnResponse(false, true, "Unauthorized", []));
+
+    const rows = await queryDb(
+      `SELECT tr00_perm_id
+       FROM tr00_subadmin_permissions
+       WHERE tr00_perm_login_id = ?
+         AND tr00_perm_key      = ?
+         AND tr00_perm_status   = 1
+       LIMIT 1;`,
+      [loginId, permKey],
+    );
+
+    if (rows?.length) return next();
+
+    return res
+      .status(201)
+      .json(
+        returnResponse(
+          false,
+          true,
+          `You don't have permission to access this feature. Please contact your Admin to grant "${permKey}" access.`,
+          [],
+        ),
+      );
+  } catch (err) {
+    return res
+      .status(500)
+      .json(
+        returnResponse(false, true, err?.message || "Permission check failed."),
       );
   }
 };

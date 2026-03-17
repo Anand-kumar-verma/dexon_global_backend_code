@@ -2233,9 +2233,9 @@ exports.totalLevelWiseMember = async (req, res, next) => {
 exports.updateMemberProfile = async (req, res, next) => {
     const userId = req.userId;
     try {
-        const { email, newPass, name, mobile, wallet_address, type, editUserId, isBlocked } = req.body;
+        const { email, newPass, name, mobile, wallet_address, editUserId=null, isBlocked } = req.body;
 
-        if (type != 1) {
+        if (!editUserId) { 
             const idAlreadyTopup = await queryDb(
                 "SELECT 1 FROM `tr09_member_topup` WHERE `tr09_user_id` = ? AND `tr09_roi_status` = 1 LIMIT 1;",
                 [userId],
@@ -2243,6 +2243,11 @@ exports.updateMemberProfile = async (req, res, next) => {
             if (!(idAlreadyTopup?.length > 0)) {
                 return res.status(201).json(returnResponse(false, true, "You have to do at least one topup to update profile!"));
             }
+        }
+        
+        if (editUserId) {
+            await checkPermission("members.update_profile")(req, res, async () => {});
+            if (res.headersSent) return;
         }
 
         const fields = [];
@@ -2283,7 +2288,7 @@ exports.updateMemberProfile = async (req, res, next) => {
             return res.status(201).json(returnResponse(false, true, "No fields to update!"));
         }
 
-        const targetId = type === 1 ? editUserId : userId;
+        const targetId = editUserId ||  userId;
         const sql = `UPDATE \`tr01_login_credential\` SET ${fields.join(", ")} WHERE \`lgn_jnr_id\` = ?;`;
         values.push(targetId);
 
@@ -2958,6 +2963,7 @@ exports.updateTradeProfit = async (req, res) => {
 };
 
 const { authenticator } = require("otplib");
+const { isAdminSubAdmin, checkPermission } = require("../middleware");
 
 let _cachedSecret = null;
 

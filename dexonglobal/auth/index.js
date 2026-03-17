@@ -268,7 +268,7 @@ exports.adminLogin = async (req, res) => {
         .json(returnResponse(false, false, "Everything is required", []));
 
     const api_response = await queryDb(
-      "SELECT `login_id`,lgn_user_type,lgn_cust_id,lgn_is_blocked FROM `tr01_login_credential` WHERE (`lgn_mobile` = ? OR  `lgn_email` = ?) and `lgn_pass` = ? and `lgn_user_type` = 'Admin' LIMIT 1;",
+      "SELECT `login_id`,lgn_user_type,lgn_cust_id,lgn_is_blocked FROM `tr01_login_credential` WHERE (`lgn_mobile` = ? OR  `lgn_email` = ?) and `lgn_pass` = ? and `lgn_user_type` IN ('Admin', 'SubAdmin') LIMIT 1;",
       [username?.trim(), username?.trim(), password?.trim()],
     );
     if (api_response?.length === 0)
