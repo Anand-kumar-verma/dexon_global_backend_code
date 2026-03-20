@@ -2042,6 +2042,7 @@ exports.getDownlineTeamTree = async (req, res) => {
                 l.lgn_name,
                 l.lgn_cust_id,
                 l.lgn_wallet_add,
+                l.lgn_jnr_id AS member_reg_id,
                 tr03_cust_id,
                 tr03_rank,
                 tr03_total_income,
@@ -2064,7 +2065,7 @@ exports.getDownlineTeamTree = async (req, res) => {
             INNER JOIN tr03_user_details 
                 ON tr03_reg_id = l.lgn_jnr_id
             LEFT JOIN tr01_login_credential sponsor 
-                ON sponsor.lgn_jnr_id = l.lgn_spon_id
+                ON sponsor.lgn_jnr_id = l.lgn_spon_id WHERE g.level_id < 3 
             ORDER BY g.level_id ASC
             LIMIT 10000;
       `,
