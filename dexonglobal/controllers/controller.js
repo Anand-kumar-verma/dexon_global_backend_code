@@ -2297,8 +2297,9 @@ exports.updateMemberProfile = async (req, res, next) => {
         const targetId = editUserId || userId;
         const sql = `UPDATE \`tr01_login_credential\` SET ${fields.join(", ")} WHERE \`lgn_jnr_id\` = ?;`;
         values.push(targetId);
-
         await queryDb(sql, values);
+
+        await queryDb(`UPDATE tr01_login_credential SET lgn_update_prof = 'Active' WHERE lgn_email IS NOT NULL AND lgn_name <> 'N/A' AND lgn_pass IS NOT NULL AND lgn_jnr_id = ?`,[userId]);
 
         const message = (isBlocked !== undefined && isBlocked !== null && isBlocked !== "" && fields.length === 1)
             ? ((isBlocked === true || isBlocked === "true" || isBlocked === "Yes") ? "User blocked successfully." : "User unblocked successfully.")
