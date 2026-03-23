@@ -2311,28 +2311,6 @@ exports.updateMemberProfile = async (req, res, next) => {
     }
 };
 
-exports.getMasterData = async (req, res, next) => {
-    try {
-        const report = await queryDb(
-            "SELECT * FROM `m00_master_config` ORDER BY m00_created_at ASC;",
-            [],
-        );
-
-        return res
-            .status(200)
-            .json(
-                returnResponse(
-                    true,
-                    false,
-                    "Master data fetched successfully!",
-                    report,
-                ),
-            );
-    } catch (err) {
-        console.error(err);
-        next(err);
-    }
-};
 exports.getNewsAndUpdated = async (req, res, next) => {
     try {
         const report = await queryDb(
@@ -2978,7 +2956,7 @@ async function getTotpSecret() {
     if (_cachedSecret) return _cachedSecret;
     const rows = await queryDb(
         `SELECT m00_value FROM m00_master_config 
-         WHERE m00_title = 'TOTP_SECRET' AND m00_status = 1 LIMIT 1`,
+         WHERE m00_title = '2FA_SECRET' AND m00_status = 1 LIMIT 1`,
         []
     );
     _cachedSecret = rows?.[0]?.m00_value ?? null;
@@ -3084,4 +3062,70 @@ exports.tradePermission = async (req, res, next) => {
     } catch (err) {
         next(err);
     }
+};
+
+exports.getMasterData = async (req, res, next) => {
+    try {
+        const report = await queryDb(
+            "SELECT * FROM `m00_master_config` ORDER BY m00_created_at ASC;",
+            [],
+        );
+        
+        return res
+            .status(200)
+            .json(
+                returnResponse(
+                    true,
+                    false,
+                    "Master data fetched successfully!",
+                    report,
+                ),
+            );
+    } catch (err) {
+        console.error(err);
+        next(err);
+    }
+};
+
+exports.updateMasterData = async (req, res) => {
+  try {
+    const { id, value, status, comment } = req.body;
+ 
+    const allowedIds = [2, 3, 4, 5, 6, 7, 8];
+    if (!id || !allowedIds.includes(Number(id))) {
+      return res.status(400).json(
+        returnResponse(false, true, "Invalid config ID. Only IDs 2–8 are allowed.")  // ✅ fixed
+      );
+    }
+ 
+    if (status !== 0 && status !== 1) {
+      return res.status(400).json(
+        returnResponse(false, true, "Status must be 0 or 1.")  // ✅ fixed
+      );
+    }
+ 
+    await queryDb(
+      `UPDATE m00_master_config
+       SET
+         m00_value      = ?,
+         m00_status     = ?,
+         m00_comment    = ?,
+         m00_updated_at = NOW()
+       WHERE m00_id = ?;`,
+      [
+        value   ?? null,
+        status,
+        comment ?? null,
+        Number(id),
+      ]
+    );
+ 
+    return res.status(200).json(
+      returnResponse(true, false, "Config updated successfully")  // ✅ fixed
+    );
+  } catch (error) {
+    return res.status(500).json(
+      returnResponse(false, true, error.message)  // ✅ fixed
+    );
+  }
 };
