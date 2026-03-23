@@ -3022,7 +3022,7 @@ exports.verifyTotp = async (req, res, next) => {
 
 exports.withdrawalPermission = async (req, res, next) => {
     try {
-        const { customer_id, status } = req.body;
+        const { customer_id, status,walletType } = req.body;
         if (status !== 0 && status !== 1) {
             return res.status(400).json(returnResponse(false, true, "Invalid status value", []));
         }
@@ -3033,10 +3033,18 @@ exports.withdrawalPermission = async (req, res, next) => {
         if (!checkUser.length) {
             return res.status(404).json(returnResponse(false, true, "User not found", []));
         }
-        await queryDb(
-            "UPDATE tr03_user_details SET tr03_active_for_payout = ? WHERE tr03_reg_id = ?",
-            [status, customer_id]
-        );
+        if(walletType==="Growth"){
+            await queryDb(
+                "UPDATE tr03_user_details SET tr03_active_for_growth_payout = ? WHERE tr03_reg_id = ?",
+                [status, customer_id]
+            )
+        }
+        else{
+            await queryDb(
+                "UPDATE tr03_user_details SET tr03_active_for_earning_payout = ? WHERE tr03_reg_id = ?",
+                [status, customer_id]
+            )
+        }
 
         const message =
             status === 0
