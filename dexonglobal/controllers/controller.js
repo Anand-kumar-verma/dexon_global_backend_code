@@ -2299,7 +2299,7 @@ exports.updateMemberProfile = async (req, res, next) => {
         values.push(targetId);
         await queryDb(sql, values);
 
-        await queryDb(`UPDATE tr01_login_credential SET lgn_update_prof = 'Active' WHERE lgn_email IS NOT NULL AND lgn_name <> 'N/A' AND lgn_pass IS NOT NULL AND lgn_jnr_id = ?`,[userId]);
+        await queryDb(`UPDATE tr01_login_credential SET lgn_update_prof = 'Active' WHERE lgn_email IS NOT NULL AND lgn_name <> 'N/A' AND lgn_pass IS NOT NULL AND lgn_jnr_id = ?`, [userId]);
 
         const message = (isBlocked !== undefined && isBlocked !== null && isBlocked !== "" && fields.length === 1)
             ? ((isBlocked === true || isBlocked === "true" || isBlocked === "Yes") ? "User blocked successfully." : "User unblocked successfully.")
@@ -2902,6 +2902,176 @@ exports.getPayoutCallback = async (req, res, next) => {
     }
 };
 
+exports.memberTopuCryptoFitpGateway = async (req, res, next) => {
+    const userid = req.userId;
+
+    try {
+        const { user_amount = 0 } = req.body;
+
+        const cond = await queryDb("SELECT fn_payin_conditions(?,?) AS msg;", [
+            Number(userid),
+            Number(user_amount || 0),
+        ]);
+        if (cond?.[0]?.msg !== "1")
+            return res
+                .status(201)
+                .json(returnResponse(false, true, cond?.[0]?.msg, []));
+
+        const wdrl_net_amnt = user_amount;
+        const getRandom = randomStrNumeric(15);
+
+        const gatewayBody = {
+            txtamount: String(wdrl_net_amnt),
+            coin: "USDT.BEP20",
+            UserID: "dexonglobal0903@gmail.com",
+            Token: "53681672071799621003140243385879",
+            TransactionID: getRandom,
+        };
+        let tr_insert =
+            "INSERT INTO `tr53_transactions_records`(`tr_trans_id`,`tr_user_id`,`tr_phid`,`tr_amount`,`tr_from_wallet`,`tr_req_params`) VALUES(?,?,?,?,?,?);";
+        const last_id = await queryDb(tr_insert, [
+            getRandom,
+            Number(userid),
+            Number(userid),
+            Number(wdrl_net_amnt || 0),
+            "XXXXXXXXXXXXXXXX",
+            JSON.stringify(gatewayBody),
+        ]);
+
+        const formData = new FormData();
+        formData.append("UserID", "dexonglobal0903@gmail.com");
+        formData.append("Token", "53681672071799621003140243385879");
+        formData.append("coin", "USDT.BEP20");
+        formData.append("txtamount", String(gatewayBody.txtamount));
+        formData.append("TransactionID", getRandom);
+
+        const apiRes = await axios.post(
+            "https://cryptofit.biz/Payment/coinpayments_api_call",
+            formData,
+        );
+
+        if (
+            apiRes?.data?.error === "ok" &&
+            String(apiRes?.data?.status) === "200"
+        ) {
+            await queryDb(
+                "UPDATE `tr53_transactions_records` SET `tr_res_params` = ? WHERE `tr_id`  = ?;",
+                [JSON.stringify(apiRes?.data || {}), last_id],
+            );
+        }
+
+        const qr = await QRCode.toDataURL(apiRes?.data?.address)
+
+        return res
+            .status(200)
+            .json(
+                returnResponse(
+                    true,
+                    false,
+                    apiRes?.data?.msg || "Payin request received",
+                    [{
+                        ...apiRes.data,
+                        qr: qr
+                    } || {}],
+                ),
+            );
+    } catch (err) {
+        console.log(err);
+        next(err);
+    }
+};
+
+exports.getPayoutCallbackPayin = async (req, res, next) => {
+    try {
+        const respose = req.body;
+        //    {
+        //   amount1: '1',
+        //   amount2: '1',
+        //   buyer_name: 'CoinPayments API',
+        //   currency1: 'USDT.BEP20',
+        //   currency2: 'USDT.BEP20',
+        //   email: 'info@asiancapitalcoin.io',
+        //   fee: '0.01',
+        //   invoice: '177484679529187',
+        //   ipn_id: '49b9a6eda7fc9c84d42110eb98f7378d',
+        //   ipn_mode: 'hmac',
+        //   ipn_type: 'api',
+        //   ipn_version: '1.0',
+        //   merchant: '98d1491f66479137fa559725fba97de9',
+        //   net: '0.99',
+        //   received_amount: '1',
+        //   received_confirms: '25',
+        //   send_tx: '0x32963c43e771b3ef895e4f59ea4a868e577b3d6326c3c7f225f2ba2262678a71',
+        //   status: '100',
+        //   status_text: 'Complete'
+        // }
+
+        // console.log("Payout Callback Response:", respose);
+        const tr_id = await queryDb(
+            "SELECT `tr_trans_id`,`tr_amount`,tr_user_id,tr_id,tr_status FROM `tr53_transactions_records` WHERE `tr_trans_id` = ? LIMIT 1;",
+            [respose?.invoice],
+        );
+
+        if (
+            respose?.status_text?.toLocaleLowerCase() === "complete" &&
+            tr_id?.[0]?.tr_status !== "Success"
+        ) {
+            let tr_insert =
+                "update `tr53_transactions_records` set `tr_res_params`=?,tr_res_date=?,`tr_status`=2,`tr_status_updated_at`=now(),`tr_hex_code`=? where `tr_id` = ? limit 1;";
+            await queryDb(tr_insert, [
+                JSON.stringify(respose || {}),
+                moment().format("YYYY-MM-DD HH:mm:ss"),
+                respose?.send_tx || "",
+                Number(tr_id?.[0]?.tr_id) || 0,
+            ]);
+
+            const getPreBal = await queryDb(
+                "SELECT IFNULL(`tr03_fund_wallet`,0) AS pre_bal FROM `tr03_user_details` WHERE `tr03_reg_id` =? LIMIT 1;",
+                [Number(tr_id?.[0]?.tr_user_id) || 0],
+            );
+            let q = `
+                INSERT INTO tr07_manage_ledger(tr07_reg_id,tr07_trans_id,tr07_main_label,tr07_sub_label,tr07_open_bal,tr07_tr_amount,tr07_clos_bal,tr07_credit,tr07_description,tr07_help_id)
+                VALUES(
+                    ?,
+                    ?,
+                    'IN',
+                    'FUND WALLET',
+                    ?,
+                    ?,
+                    ?,
+                    1,
+                    CONCAT('DEPOSIT FROM CRYPTOFIT GATEWAY'),
+                    ?
+                    );
+                `;
+            await queryDb(q, [
+                Number(tr_id?.[0]?.tr_user_id) || 0,
+                tr_id?.[0]?.tr_trans_id,
+                Number(getPreBal?.[0]?.pre_bal || 0),
+                Number(respose?.amount1 || 0)?.toFixed(4),
+                Number(
+                    Number(getPreBal?.[0]?.pre_bal || 0) + Number(respose?.amount1 || 0),
+                )?.toFixed(4),
+                Number(tr_id?.[0]?.tr_id) || 0,
+            ]);
+        } else {
+            let tr_insert =
+                "update `tr53_transactions_records` set `tr_res_params`=?,tr_res_date=?,`tr_status`=3,`tr_status_updated_at`=now(),`tr_hex_code`=? where `tr_id` = ? limit 1;";
+            await queryDb(tr_insert, [
+                JSON.stringify(respose || {}),
+                moment().format("YYYY-MM-DD HH:mm:ss"),
+                respose?.send_tx || "",
+                Number(tr_id?.[0]?.tr_id) || 0,
+            ]);
+        }
+
+        return res.status(200).json(returnResponse(true, false, "Done", []));
+    } catch (err) {
+        console.error(err);
+        next(err);
+    }
+};
+
 exports.updateTradeProfit = async (req, res) => {
     try {
         const { m05_id, m05_profit, m05_profit1 } = req.body;
@@ -3000,7 +3170,7 @@ exports.verifyTotp = async (req, res, next) => {
 
 exports.withdrawalPermission = async (req, res, next) => {
     try {
-        const { customer_id, status,walletType } = req.body;
+        const { customer_id, status, walletType } = req.body;
         if (status !== 0 && status !== 1) {
             return res.status(400).json(returnResponse(false, true, "Invalid status value", []));
         }
@@ -3011,13 +3181,13 @@ exports.withdrawalPermission = async (req, res, next) => {
         if (!checkUser.length) {
             return res.status(404).json(returnResponse(false, true, "User not found", []));
         }
-        if(walletType==="Growth"){
+        if (walletType === "Growth") {
             await queryDb(
                 "UPDATE tr03_user_details SET tr03_active_for_growth_payout = ? WHERE tr03_reg_id = ?",
                 [status, customer_id]
             )
         }
-        else{
+        else {
             await queryDb(
                 "UPDATE tr03_user_details SET tr03_active_for_earning_payout = ? WHERE tr03_reg_id = ?",
                 [status, customer_id]
@@ -3070,7 +3240,7 @@ exports.getMasterData = async (req, res, next) => {
             "SELECT * FROM `m00_master_config` ORDER BY m00_created_at ASC;",
             [],
         );
-        
+
         return res
             .status(200)
             .json(
@@ -3088,44 +3258,44 @@ exports.getMasterData = async (req, res, next) => {
 };
 
 exports.updateMasterData = async (req, res) => {
-  try {
-    const { id, value, status, comment } = req.body;
- 
-    const allowedIds = [2, 3, 4, 5, 6, 7, 8];
-    if (!id || !allowedIds.includes(Number(id))) {
-      return res.status(400).json(
-        returnResponse(false, true, "Invalid config ID. Only IDs 2–8 are allowed.")  // ✅ fixed
-      );
-    }
- 
-    if (status !== 0 && status !== 1) {
-      return res.status(400).json(
-        returnResponse(false, true, "Status must be 0 or 1.")  // ✅ fixed
-      );
-    }
- 
-    await queryDb(
-      `UPDATE m00_master_config
+    try {
+        const { id, value, status, comment } = req.body;
+
+        const allowedIds = [2, 3, 4, 5, 6, 7, 8];
+        if (!id || !allowedIds.includes(Number(id))) {
+            return res.status(400).json(
+                returnResponse(false, true, "Invalid config ID. Only IDs 2–8 are allowed.")  // ✅ fixed
+            );
+        }
+
+        if (status !== 0 && status !== 1) {
+            return res.status(400).json(
+                returnResponse(false, true, "Status must be 0 or 1.")  // ✅ fixed
+            );
+        }
+
+        await queryDb(
+            `UPDATE m00_master_config
        SET
          m00_value      = ?,
          m00_status     = ?,
          m00_comment    = ?,
          m00_updated_at = NOW()
        WHERE m00_id = ?;`,
-      [
-        value   ?? null,
-        status,
-        comment ?? null,
-        Number(id),
-      ]
-    );
- 
-    return res.status(200).json(
-      returnResponse(true, false, "Config updated successfully")  // ✅ fixed
-    );
-  } catch (error) {
-    return res.status(500).json(
-      returnResponse(false, true, error.message)  // ✅ fixed
-    );
-  }
+            [
+                value ?? null,
+                status,
+                comment ?? null,
+                Number(id),
+            ]
+        );
+
+        return res.status(200).json(
+            returnResponse(true, false, "Config updated successfully")  // ✅ fixed
+        );
+    } catch (error) {
+        return res.status(500).json(
+            returnResponse(false, true, error.message)  // ✅ fixed
+        );
+    }
 };
