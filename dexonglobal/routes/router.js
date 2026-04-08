@@ -1,7 +1,7 @@
 "use strict";
 const express = require("express");
 const { userLogin, userRegistration, adminLogin, dappUserLogin } = require("../auth");
-const { getDistributorNameById, member_topup_by_admin, ZPpayInRequest_Dummy_Entry, ZPpayInRequest, userActivationFromSpotWallet, getReportDeails, getRewardAchieversList, claimedReward, memberPayout, withdrawalApprovalFromAdmin, getMemberPayoutReport, memberDashboard, memberCompounding, claimIncome, createUserWallet, perFormTransactoin, chaimPendingTransaction, getPendingWalletHistory, getDownlineTeamTree, getDownlineTeamTreeAdmin, getDownlineTeam, totalLevelWiseMember, updateMemberProfile, getMasterData, updateGeneralStatus, getMemberDetail, getMemberListByAdmin, admin_dashboard, getMemberDashboard, fundTransferP2P, memberDashboardBusiness, getNewsAndUpdated, updateNewsAndUpdated, updateNewsAndUpdatedStatus, createTradePair, updateTradePairStatus, deleteTradePair, getGlobalPayoutHisatory, member_global_live_transacton_activity, getTradePair, getPackageDetails, getPayoutCallback, updateTradeProfit, verifyTotp, withdrawalPermission, tradePermission, getMasterConfig, updateMasterData, getPayoutCallbackPayin, memberTopuCryptoFitpGateway } = require("../controllers/controller");
+const { getDistributorNameById, member_topup_by_admin, ZPpayInRequest_Dummy_Entry, ZPpayInRequest, userActivationFromSpotWallet, getReportDeails, getRewardAchieversList, claimedReward, memberPayout, withdrawalApprovalFromAdmin, getMemberPayoutReport, memberDashboard, memberCompounding, claimIncome, createUserWallet, perFormTransactoin, chaimPendingTransaction, getPendingWalletHistory, getDownlineTeamTree, getDownlineTeamTreeAdmin, getDownlineTeam, totalLevelWiseMember, updateMemberProfile, getMasterData, updateGeneralStatus, getMemberDetail, getMemberListByAdmin, admin_dashboard, getMemberDashboard, fundTransferP2P, memberDashboardBusiness, getNewsAndUpdated, updateNewsAndUpdated, updateNewsAndUpdatedStatus, createTradePair, updateTradePairStatus, deleteTradePair, getGlobalPayoutHisatory, member_global_live_transacton_activity, getTradePair, getPackageDetails, getPayoutCallback, updateTradeProfit, verifyTotp, withdrawalPermission, tradePermission, getMasterConfig, updateMasterData, getPayoutCallbackPayin, memberTopuCryptoFitpGateway, updateMemberMaxPayout } = require("../controllers/controller");
 const { checkAuth, isAdmin, isAdminSubAdmin, checkPermission } = require("../middleware");
 const { getMyTrades } = require("../controllers/trade_controller");
 const { userMessage, adminReply, getMessaage } = require("../controllers/ticketAndSupport");
@@ -52,7 +52,7 @@ router.get("/get-trades", checkAuth, getMyTrades);
 router.get("/get-package-details", checkAuth, getPackageDetails);
 router.post("/user-message", checkAuth, userMessage);
 router.post("/get-user-messages", checkAuth, getMessaage);
-
+router.post("/update-member-max-payout" , checkAuth , updateMemberMaxPayout);
 
 
 // ── Admin / SubAdmin READ ─────────────────────────────────────────────────────
@@ -86,6 +86,7 @@ router.post("/update-subadmin-permissions", checkAuth, isAdmin, updateSubAdminPe
 router.post("/toggle-subadmin-status", checkAuth, isAdmin, toggleSubAdminStatus);
 router.post("/toggle-subadmin-access", checkAuth, isAdmin, toggleSubAdminAccess);
 router.post("/update-master-data",checkAuth,isAdmin, updateMasterData);
+;
 
 
 module.exports = router;

@@ -3299,3 +3299,47 @@ exports.updateMasterData = async (req, res) => {
         );
     }
 };
+
+exports.updateMemberMaxPayout = async (req, res, next) => {
+    try {
+        const role = req.role;
+        const { user_id, max_payout } = req.body;
+
+        if (!user_id || max_payout === undefined) {
+            return res.status(400).json(
+                returnResponse(false, true, "user_id and max_payout are required")
+            );
+        }
+
+        if (role !== "Admin") {
+            return res.status(403).json(
+                returnResponse(false, true, "Unauthorized access")
+            );
+        }
+
+        const checkUser = await queryDb(
+            `SELECT tr03_reg_id FROM tr03_user_details WHERE tr03_reg_id = ?`,
+            [user_id]
+        );
+
+        if (!checkUser.length) {
+            return res.status(404).json(
+                returnResponse(false, true, "User not found")
+            );
+        }
+        await queryDb(
+            `UPDATE tr03_user_details 
+             SET tr03_max_payout = ? 
+             WHERE tr03_reg_id = ?`,
+            [max_payout, user_id]
+        );
+
+        return res.status(200).json(
+            returnResponse(true, false, "Max payout updated successfully")
+        );
+
+    } catch (error) {
+        console.log(error);
+        next(error);
+    }
+};
