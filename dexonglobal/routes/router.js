@@ -72,7 +72,7 @@ router.post("/update-trade-pair-status", checkAuth, isAdminSubAdmin, checkPermis
 router.post("/delete-trade-pair", checkAuth, isAdminSubAdmin, checkPermission("trade.delete"), deleteTradePair);
 router.post("/member-trade-perm", checkAuth, isAdminSubAdmin, checkPermission("trade.toggle_permission"), tradePermission);
 router.post("/update-trade-profit", checkAuth, isAdminSubAdmin, checkPermission("trade.update_profit"), updateTradeProfit);
-router.get("/get-master-data",checkAuth,isAdminSubAdmin, getMasterData);
+router.get("/get-master-data",checkAuth, getMasterData);
 
 // ── Admin / SubAdmin WRITE — Tickets ─────────────────────────────────────────
 router.post("/admin-reply", checkAuth, isAdminSubAdmin, checkPermission("tickets.reply"), adminReply);
