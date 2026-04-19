@@ -2,12 +2,12 @@ const { Sequelize } = require("sequelize");
 require("dotenv").config();
 
 const sequlize = new Sequelize(
-  "administrator_dexonglobal", // db name
-  "administrator_dexonglobal", // user name
-  "u6&jaHoWctbK", // pass
+  process.env.DB_NAME, // db name
+  process.env.DB_USER, // user name
+  process.env.DB_PASSWORD, // pass
   {
     dialect: "mysql",
-    host: "103.120.176.66", // host
+    host: process.env.DB_HOST, // host
     logging: false,
     dialectOptions: {
       multipleStatements: true,

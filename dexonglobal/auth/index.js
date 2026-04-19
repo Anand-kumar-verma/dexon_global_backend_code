@@ -3,6 +3,8 @@ const { returnResponse } = require("../helper/helperResponse");
 const {
   queryDb,
   randomStrAlphabetNumeric,
+  deCryptData,
+  enCryptData,
 } = require("../helper/utilityHelper");
 const { isValidMobile, isValidEmail } = require("../validation/validation");
 const mailSender = require("../utils/Nodemailer");
@@ -187,7 +189,6 @@ exports.userRegistration = async (req, res) => {
       [],
     );
     if (result?.[0]?.message === "Registration Successfully") {
-
       // await mailSender(
       //   email?.trim(),
       //   `Congcongratulations,${full_name?.trim()}`,
@@ -305,83 +306,87 @@ exports.adminLogin = async (req, res) => {
 
 exports.dappUserLogin = async (req, res) => {
   try {
-    const {
-      wallet_address = "",
-      referral_id,
-    } = req.body;
-    if (!wallet_address)
-      return res
-        .status(201)
-        .json(returnResponse(false, false, "Wallet address is required", []));
+    const { payload } = req.body;
+
+    const { wallet_address_user_ka = "", referral_id } =
+      deCryptData(payload) || {};
+
+    if (!wallet_address_user_ka)
+      return res.status(201).json({
+        apiRes: enCryptData(
+          returnResponse(false, false, "Wallet address is required", []),
+        ),
+      });
 
     const api_response = await queryDb(
       "SELECT `login_id`,lgn_user_type,lgn_cust_id,lgn_is_blocked FROM `tr01_login_credential` WHERE `lgn_wallet_add` = ? LIMIT 1;",
-      [wallet_address?.trim()?.toLowerCase()],
+      [wallet_address_user_ka?.trim()?.toLowerCase()],
     );
     if (api_response?.length === 0 && referral_id) {
       const token = randomStrAlphabetNumeric(100);
 
-      await queryDb(
-        "CALL sp_dapp_registration(?,?,?,@p_message,@p_cust_id);",
-        [
-          wallet_address?.trim()?.toLowerCase(),
-          referral_id?.trim(),
-          token,
-        ],
-      );
+      await queryDb("CALL sp_dapp_registration(?,?,?,@p_message,@p_cust_id);", [
+        wallet_address_user_ka?.trim()?.toLowerCase(),
+        referral_id?.trim(),
+        token,
+      ]);
       const result = await queryDb(
         "SELECT @p_message AS message, @p_cust_id AS cust_id;",
         [],
       );
 
-      return res
-        .status(200)
-        .json(
+      return res.status(200).json({
+        apiRes: enCryptData(
           returnResponse(true, false, result?.[0]?.message, [
             { token: token, user_type: "User", cust_id: result?.[0]?.cust_id },
           ]),
-        );
+        ),
+      });
     } else if (api_response?.length === 0 && !referral_id) {
-      return res
-        .status(201)
-        .json(
+      return res.status(201).json({
+        apiRes: enCryptData(
           returnResponse(false, false, "Wallet Not Registered", []),
-        );
+        ),
+      });
     }
     if (api_response?.[0]?.lgn_is_blocked === "Yes") {
-      return res.status(201).json(
-        returnResponse(
-          false,
-          false,
-          "Sorry! Your Id is not activated for login, Try again later.",
-          [
-            {
-              token: "",
-              user_type: "User"
-            },
-          ],
+      return res.status(201).json({
+        apiRes: enCryptData(
+          returnResponse(
+            false,
+            false,
+            "Sorry! Your Id is not activated for login, Try again later.",
+            [
+              {
+                token: "",
+                user_type: "User",
+              },
+            ],
+          ),
         ),
-      );
+      });
     }
     const token = randomStrAlphabetNumeric(100);
     await queryDb(
       "UPDATE `tr01_login_credential` SET `lgn_token` = ?  WHERE `login_id` = ?;",
       [token?.trim(), Number(api_response?.[0]?.login_id)],
     );
-    return res.status(200).json(
-      returnResponse(true, false, "Login Successfully", [
-        {
-          token: token,
-          user_type: api_response?.[0]?.lgn_user_type
-        },
-      ]),
-    );
+    return res.status(200).json({
+      apiRes: enCryptData(
+        returnResponse(true, false, "Login Successfully", [
+          {
+            token: token,
+            user_type: api_response?.[0]?.lgn_user_type,
+          },
+        ]),
+      ),
+    });
   } catch (e) {
-    console.log(e)
-    return res
-      .status(500)
-      .json(
+    console.log(e);
+    return res.status(500).json({
+      apiRes: enCryptData(
         returnResponse(false, true, e.message || `Internal Server Error`, []),
-      );
+      ),
+    });
   }
 };

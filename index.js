@@ -45,7 +45,7 @@ app.use(cors(corsOptions));
 app.use(bodyParser.json({ limit: "10mb" }));
 app.use(bodyParser.urlencoded({ limit: "10mb", extended: true }));
 
-app.use("/api/v9", dexonglobal);
+app.use("/api/v9/sadjkbdsajfhlsjkdf/", dexonglobal);
 
 app.use(express.static(path.join(__dirname, "build")));
 app.get("/*", (req, res) => {

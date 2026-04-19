@@ -1,6 +1,7 @@
 require("dotenv").config();
 const { queryDb } = require("../helper/utilityHelper");
 const { returnResponse } = require("../helper/helperResponse");
+const logRequest = require("../utils/requestLogger");
 
 exports.checkAuth = async (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -174,4 +175,19 @@ exports.checkPermission = (permKey) => async (req, res, next) => {
         returnResponse(false, true, err?.message || "Permission check failed."),
       );
   }
+};
+
+exports.apiLogger = (req, res, next) => {
+  res.on("finish", () => {
+    logRequest({
+      method: req.method,
+      url: req.originalUrl,
+      params: req.params,
+      query: req.query,
+      body: req.body,
+      status: res.statusCode,
+      ip: req.ip,
+    });
+  });
+  next();
 };

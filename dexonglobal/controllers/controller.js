@@ -2501,10 +2501,10 @@ exports.updateMemberProfile = async (req, res, next) => {
       fields.push("`lgn_name` = ?");
       values.push(name);
     }
-    if (wallet_address) {
-      fields.push("`lgn_wallet_add` = ?");
-      values.push(wallet_address?.trim());
-    }
+    // if (wallet_address) {
+    //   fields.push("`lgn_wallet_add` = ?");
+    //   values.push(wallet_address?.trim());
+    // }
 
     if (isBlocked !== undefined && isBlocked !== null && isBlocked !== "") {
       const status =
