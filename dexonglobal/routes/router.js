@@ -82,6 +82,7 @@ const {
 
 
 const { apiLogger } = require('../middleware');
+const { verifyAdminTotp, getAdminQr } = require("../controllers/admin2FA");
 const router = express.Router();
 
 // Attach logger middleware to all routes
@@ -253,5 +254,8 @@ router.post(
   isAdmin,
   toggleSubAdminAccess,
 );
+
+router.post("/verify-admin-totp", verifyAdminTotp);
+
 router.post("/update-master-data", checkAuth, isAdmin, updateMasterData);
 module.exports = router;
