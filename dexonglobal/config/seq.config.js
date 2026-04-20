@@ -12,7 +12,7 @@ const sequlize = new Sequelize(
     dialectOptions: {
       multipleStatements: true,
     },
-  }
+  },
 );
 // (async () => {
 //   try {
