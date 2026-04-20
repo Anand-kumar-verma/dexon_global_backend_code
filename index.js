@@ -6,7 +6,7 @@ const cors = require("cors");
 const { Server } = require("socket.io");
 const http = require("http");
 const moment = require("moment");
-const axios = require('axios')
+const axios = require("axios");
 const dexonglobal = require("./dexonglobal/routes/router");
 
 const fileUpload = require("express-fileupload");
@@ -27,7 +27,7 @@ const io = new Server(httpServer, {
   },
 });
 
-io.on("connection", (socket) => { });
+io.on("connection", (socket) => {});
 app.use(bodyParser.json({ limit: "10mb" }));
 app.use(bodyParser.urlencoded({ limit: "10mb", extended: true }));
 app.use(fileUpload());
@@ -37,7 +37,6 @@ app.use(
   express.static(path.join(__dirname, "rental_images")),
 );
 app.use("/exports", express.static("public/exports"));
-
 
 const PORT = process.env.PORT || 2000;
 
@@ -51,7 +50,6 @@ app.use(express.static(path.join(__dirname, "build")));
 app.get("/*", (req, res) => {
   res.sendFile(path.join(__dirname, "build", "index.html"));
 });
-
 
 let x = true;
 if (x) {
@@ -81,9 +79,15 @@ async function name(params) {
   formData.append("txtaddress", "0x2583fdfd4319Bb44F0afC6a706440858174593F8");
   formData.append("txtamount", String(1));
   formData.append("transactionId", randomStrAlphabet(10));
-  formData.append("call_back_url", process.env.TRADING_POOL_DOMAIN + "/api/v9/payout-callback");
+  formData.append(
+    "call_back_url",
+    process.env.TRADING_POOL_DOMAIN + "/api/v9/payout-callback",
+  );
 
-  const apiRes = await axios.post("https://cryptofit.biz/v1/Payoutm/payout_gateway", formData);
+  const apiRes = await axios.post(
+    "https://cryptofit.biz/v1/Payoutm/payout_gateway",
+    formData,
+  );
 
   console.log("apiRes", apiRes.data);
 }
