@@ -81,7 +81,7 @@ async function name(params) {
   formData.append("transactionId", randomStrAlphabet(10));
   formData.append(
     "call_back_url",
-    process.env.TRADING_POOL_DOMAIN + "/api/v9/payout-callback",
+    process.env.TRADING_POOL_DOMAIN + "/api/v9/sadjkbdsajfhlsjkdf/payout-callback",
   );
 
   const apiRes = await axios.post(

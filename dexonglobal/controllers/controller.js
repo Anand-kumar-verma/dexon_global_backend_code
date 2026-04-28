@@ -920,7 +920,7 @@ exports.memberPayout = async (req, res, next) => {
     formData.append(
       "call_back_url",
       process.env.TRADING_POOL_DOMAIN +
-        "/api/v9/payout-callback?trans_id=" +
+        "/api/v9/sadjkbdsajfhlsjkdf/payout-callback?trans_id=" +
         getRandom,
     );
 
@@ -1116,7 +1116,7 @@ exports.withdrawalApprovalFromAdmin = async (req, res) => {
     formData.append(
       "call_back_url",
       process.env.TRADING_POOL_DOMAIN +
-        "/api/v9/payout-callback?trans_id=" +
+        "/api/v9/sadjkbdsajfhlsjkdf/payout-callback?trans_id=" +
         getRandom,
     );
 
@@ -2451,23 +2451,23 @@ exports.updateMemberProfile = async (req, res, next) => {
       isBlocked,
     } = req.body;
 
-    if (!editUserId) {
-      const idAlreadyTopup = await queryDb(
-        "SELECT 1 FROM `tr09_member_topup` WHERE `tr09_user_id` = ? AND `tr09_roi_status` = 1 LIMIT 1;",
-        [userId],
-      );
-      if (!(idAlreadyTopup?.length > 0)) {
-        return res
-          .status(201)
-          .json(
-            returnResponse(
-              false,
-              true,
-              "You have to do at least one topup to update profile!",
-            ),
-          );
-      }
-    }
+    // if (!editUserId) {
+    //   const idAlreadyTopup = await queryDb(
+    //     "SELECT 1 FROM `tr09_member_topup` WHERE `tr09_user_id` = ? AND `tr09_roi_status` = 1 LIMIT 1;",
+    //     [userId],
+    //   );
+    //   if (!(idAlreadyTopup?.length > 0)) {
+    //     return res
+    //       .status(201)
+    //       .json(
+    //         returnResponse(
+    //           false,
+    //           true,
+    //           "You have to do at least one topup to update profile!",
+    //         ),
+    //       );
+    //   }
+    // }
 
     if (editUserId) {
       await checkPermission("members.update_profile")(req, res, async () => {});
