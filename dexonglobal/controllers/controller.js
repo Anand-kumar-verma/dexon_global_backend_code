@@ -1117,7 +1117,7 @@ exports.withdrawalApprovalFromAdmin = async (req, res) => {
       "call_back_url",
       process.env.TRADING_POOL_DOMAIN +
         "/api/v9/sadjkbdsajfhlsjkdf/payout-callback?trans_id=" +
-        getRandom,
+        rec?.tr11_transacton_id,
     );
 
     const apiRes = await axios.post(
